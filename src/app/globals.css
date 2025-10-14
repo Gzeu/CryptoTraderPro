@@ -1,0 +1,249 @@
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 221.2 83.2% 53.3%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222.2 84% 4.9%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96%;
+    --accent-foreground: 222.2 84% 4.9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 221.2 83.2% 53.3%;
+    --radius: 0.5rem;
+    
+    /* Custom crypto trading colors */
+    --bullish: 142 71% 45%;  /* Green for gains */
+    --bearish: 0 84% 60%;    /* Red for losses */
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 217.2 91.2% 59.8%;
+    --primary-foreground: 222.2 84% 4.9%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 224.3 76.3% 94.1%;
+    
+    /* Dark theme crypto colors */
+    --bullish: 142 71% 45%;  /* Brighter green for dark mode */
+    --bearish: 0 84% 60%;    /* Brighter red for dark mode */
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+  
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    @apply bg-muted;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    @apply bg-border rounded-full;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted-foreground;
+  }
+  
+  /* Firefox scrollbar */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) hsl(var(--muted));
+  }
+}
+
+@layer components {
+  /* Crypto-specific utility classes */
+  .price-up {
+    @apply text-bullish;
+  }
+  
+  .price-down {
+    @apply text-bearish;
+  }
+  
+  .price-neutral {
+    @apply text-muted-foreground;
+  }
+  
+  .bg-price-up {
+    @apply bg-bullish/10 text-bullish border-bullish/20;
+  }
+  
+  .bg-price-down {
+    @apply bg-bearish/10 text-bearish border-bearish/20;
+  }
+  
+  /* Chart container styles */
+  .chart-container {
+    @apply relative w-full h-full bg-card rounded-lg border;
+  }
+  
+  /* Table styles for crypto data */
+  .crypto-table {
+    @apply w-full border-collapse;
+  }
+  
+  .crypto-table th {
+    @apply px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider border-b bg-muted/50;
+  }
+  
+  .crypto-table td {
+    @apply px-4 py-3 whitespace-nowrap border-b;
+  }
+  
+  .crypto-table tr:hover {
+    @apply bg-muted/50;
+  }
+  
+  /* Loading animations */
+  .loading-shimmer {
+    @apply animate-pulse bg-gradient-to-r from-muted via-muted/70 to-muted bg-[length:400%_100%];
+    animation: shimmer 1.5s ease-in-out infinite;
+  }
+  
+  @keyframes shimmer {
+    0% {
+      background-position: -200% 0;
+    }
+    100% {
+      background-position: 200% 0;
+    }
+  }
+  
+  /* Price pulse animation */
+  .price-pulse {
+    animation: price-pulse 2s ease-in-out infinite;
+  }
+  
+  @keyframes price-pulse {
+    0%, 100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+    50% {
+      transform: scale(1.05);
+      opacity: 0.8;
+    }
+  }
+  
+  /* Status indicators */
+  .status-online {
+    @apply inline-flex h-2 w-2 rounded-full bg-bullish animate-pulse;
+  }
+  
+  .status-offline {
+    @apply inline-flex h-2 w-2 rounded-full bg-bearish;
+  }
+  
+  /* Gradient backgrounds */
+  .gradient-bullish {
+    @apply bg-gradient-to-r from-bullish/20 to-bullish/10;
+  }
+  
+  .gradient-bearish {
+    @apply bg-gradient-to-r from-bearish/20 to-bearish/10;
+  }
+  
+  /* Focus styles for accessibility */
+  .focus-ring {
+    @apply focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background;
+  }
+}
+
+@layer utilities {
+  /* Hide scrollbar but keep functionality */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  
+  /* Font smoothing */
+  .font-smooth {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  
+  /* Text selection */
+  .select-none {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+  }
+  
+  /* Backdrop blur for better readability */
+  .backdrop-blur-safe {
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+  
+  /* Custom container sizes */
+  .container-xs {
+    max-width: 480px;
+  }
+  
+  .container-sm {
+    max-width: 640px;
+  }
+  
+  .container-md {
+    max-width: 768px;
+  }
+  
+  .container-lg {
+    max-width: 1024px;
+  }
+  
+  .container-xl {
+    max-width: 1280px;
+  }
+  
+  .container-2xl {
+    max-width: 1536px;
+  }
+}
