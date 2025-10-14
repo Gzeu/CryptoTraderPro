@@ -4,6 +4,25 @@
 
 @layer base {
   :root {
+    --density: 1; /* 1=comfortable, 0.85=compact */
+  }
+}
+
+/* Density utilities */
+.density-compact * {
+  letter-spacing: 0.01em;
+}
+
+.compact-table thead th { @apply py-2; }
+.compact-table tbody td { @apply py-2; }
+
+.compact-btn { @apply px-2.5 py-1.5 text-xs rounded-md; }
+.compact-card { @apply p-3; }
+.compact-input { @apply h-8 px-2 text-sm; }
+
+/* Existing theme and components preserved below */
+@layer base {
+  :root {
     /* Light (fallback) */
     --background: 0 0% 100%;
     --foreground: 224 71% 4%;
@@ -11,7 +30,7 @@
     --card-foreground: 224 71% 4%;
     --popover: 0 0% 100%;
     --popover-foreground: 224 71% 4%;
-    --primary: 221 83% 53%; /* enterprise blue */
+    --primary: 221 83% 53%;
     --primary-foreground: 210 40% 98%;
     --secondary: 220 14% 96%;
     --secondary-foreground: 224 71% 4%;
@@ -26,97 +45,70 @@
     --ring: 221 83% 53%;
     --radius: 0.75rem;
 
-    /* Signals */
     --bullish: 142 60% 40%;
     --bearish: 0 65% 45%;
     --grid: 212 24% 16%;
   }
 
-  /* Dark-first enterprise theme */
   .dark {
-    --background: 213 34% 5%;      /* #0B0F14 */
-    --foreground: 214 32% 92%;      /* #E6E9EF */
-    --card: 213 28% 7%;             /* #0F141A */
+    --background: 213 34% 5%;
+    --foreground: 214 32% 92%;
+    --card: 213 28% 7%;
     --card-foreground: 214 32% 92%;
     --popover: 213 28% 7%;
     --popover-foreground: 214 32% 92%;
-    --primary: 221 83% 53%;         /* #2563EB */
+    --primary: 221 83% 53%;
     --primary-foreground: 210 40% 98%;
-    --secondary: 213 24% 10%;       /* #131922 */
+    --secondary: 213 24% 10%;
     --secondary-foreground: 214 32% 92%;
-    --muted: 215 18% 60%;           /* #93A2B8 */
+    --muted: 215 18% 60%;
     --muted-foreground: 215 18% 75%;
     --accent: 213 24% 10%;
     --accent-foreground: 214 32% 92%;
-    --destructive: 0 65% 45%;       /* toned red */
+    --destructive: 0 65% 45%;
     --destructive-foreground: 210 40% 98%;
-    --border: 213 22% 15%;          /* #1C2430 */
+    --border: 213 22% 15%;
     --input: 213 22% 15%;
     --ring: 221 83% 53%;
 
-    --bullish: 142 50% 42%;         /* #16A34A */
-    --bearish: 0 70% 46%;           /* #DC2626 */
-    --grid: 212 24% 16%;            /* #1A222C */
+    --bullish: 142 50% 42%;
+    --bearish: 0 70% 46%;
+    --grid: 212 24% 16%;
   }
 }
 
 @layer base {
   * { @apply border-border; }
   html { scroll-behavior: smooth; }
-  body {
-    @apply bg-background text-foreground antialiased font-sans;
-    font-feature-settings: "rlig" 1, "calt" 1;
-  }
+  body { @apply bg-background text-foreground antialiased font-sans; font-feature-settings: "rlig" 1, "calt" 1; }
 }
 
-/* Density scale (8px rhythm) */
 :root { --space-1: 0.25rem; --space-2: 0.5rem; --space-3: 0.75rem; --space-4: 1rem; --space-6: 1.5rem; --space-8: 2rem; }
 
-/* Glass panels (subtle) */
 .glass { @apply bg-background/60 backdrop-blur-md border border-white/5 shadow-sm; }
-
-/* Cards */
 .card { @apply rounded-xl border bg-card shadow-sm transition-colors; }
 .card-hover { @apply hover:bg-secondary/60 hover:shadow-md transition-all duration-200; }
 .card-press { @apply active:scale-[0.99]; }
-
-/* Header (enterprise topbar) */
 .header-blur { @apply sticky top-0 z-50 bg-background/80 backdrop-blur-lg border-b; }
 .header-compact { @apply h-14; }
-
-/* Buttons */
 .btn { @apply inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background; }
 .btn-primary { @apply bg-primary text-primary-foreground hover:bg-primary/90; }
 .btn-outline { @apply border bg-background hover:bg-secondary/60; }
 .btn-ghost { @apply hover:bg-secondary/40; }
 .btn-danger { @apply bg-destructive text-destructive-foreground hover:bg-destructive/90; }
-
-/* Badges */
 .badge { @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium; }
 .badge-green { @apply bg-[hsl(var(--bullish))]/15 text-[hsl(var(--bullish))] border border-[hsl(var(--bullish))]/20; }
 .badge-red { @apply bg-[hsl(var(--bearish))]/15 text-[hsl(var(--bearish))] border border-[hsl(var(--bearish))]/20; }
 .badge-muted { @apply bg-secondary text-muted border; }
-
-/* Table */
 .table { @apply w-full text-sm; }
 .table thead th { @apply text-xs uppercase tracking-wide text-muted-foreground bg-secondary/60 px-4 py-3; }
 .table tbody td { @apply px-4 py-3 border-b; }
 .table tr:hover { @apply bg-secondary/50; }
-
-/* Grid lines for charts context */
 .chart-grid { background-image: linear-gradient(to right, hsl(var(--grid)) 1px, transparent 1px), linear-gradient(to bottom, hsl(var(--grid)) 1px, transparent 1px); background-size: 32px 32px; }
-
-/* Skeleton */
 .skeleton { @apply animate-pulse rounded-md bg-secondary; }
-
-/* Animations */
 @keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
 .fade-in { animation: fade .2s ease-out; }
-
-/* Focus ring */
 .focus-ring { @apply focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background; }
-
-/* Scrollbar */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-thumb { @apply bg-border rounded-full; }
 ::-webkit-scrollbar-thumb:hover { @apply bg-muted/60; }
