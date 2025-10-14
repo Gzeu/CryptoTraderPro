@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import { ThemeProvider } from 'next-themes'
+import Header from '@/components/layout/Header'
 import './globals.css'
 
 const inter = Inter({ subsets: ['latin'] })
@@ -10,58 +11,22 @@ export const metadata: Metadata = {
     default: 'CryptoTraderPro - Advanced Crypto Trading Dashboard',
     template: '%s | CryptoTraderPro',
   },
-  description: 'Professional cryptocurrency trading dashboard with real-time charts, portfolio tracking, and advanced analytics. Built with Next.js 14, TypeScript, and TradingView charts.',
-  keywords: [
-    'cryptocurrency',
-    'bitcoin',
-    'ethereum', 
-    'trading',
-    'dashboard',
-    'portfolio',
-    'charts',
-    'real-time',
-    'crypto prices',
-    'market data',
-  ],
-  authors: [{ name: 'CryptoTraderPro Team' }],
-  creator: 'CryptoTraderPro',
-  openGraph: {
-    type: 'website',
-    locale: 'en_US',
-    url: process.env.NEXT_PUBLIC_APP_URL,
-    title: 'CryptoTraderPro - Advanced Crypto Trading Dashboard',
-    description: 'Professional cryptocurrency trading dashboard with real-time charts and portfolio tracking.',
-    siteName: 'CryptoTraderPro',
-  },
-  robots: {
-    index: true,
-    follow: true,
-  },
-  icons: {
-    icon: '/favicon.ico',
-  },
+  description: 'Professional cryptocurrency trading dashboard with real-time charts, portfolio tracking, and advanced analytics.',
 }
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="preconnect" href="https://api.coingecko.com" />
-        <link rel="preconnect" href="https://api.binance.com" />
-      </head>
-      <body className={inter.className}>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="dark"
-          enableSystem
-          disableTransitionOnChange
-        >
-          {children}
+      <body className={`${inter.className} font-sans`}>
+        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
+          <div className="min-h-screen bg-gradient-to-b from-background to-background/80">
+            <div className="header-blur">
+              <Header />
+            </div>
+            <main className="container mx-auto px-4 py-8 fade-in">
+              {children}
+            </main>
+          </div>
         </ThemeProvider>
       </body>
     </html>
