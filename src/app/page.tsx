@@ -13,293 +13,166 @@ import {
 
 import TradingViewChart from '@/components/charts/TradingViewChart'
 import WatchlistTable from '@/components/dashboard/WatchlistTable'
-import Header from '@/components/layout/Header'
 import { usePriceData } from '@/hooks/usePriceData'
 import { useSettingsStore } from '@/store/settingsStore'
 import { getGlobalMarketData, formatNumber } from '@/lib/api/coinGecko'
 import { cn, formatTimeAgo } from '@/lib/utils'
 import type { MarketOverview, CandlestickData } from '@/types/crypto'
 
-interface MarketStatsCardProps {
-  title: string
-  value: string
-  change?: number
-  icon: React.ReactNode
-  loading?: boolean
-}
-
-function MarketStatsCard({ title, value, change, icon, loading }: MarketStatsCardProps) {
+function Stat({ title, value, change, icon: Icon }: { title: string; value: string; change?: number; icon: any }) {
   return (
-    <div className="rounded-lg border bg-card p-6">
+    <div className="card card-hover card-press p-5 glass">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="rounded-md bg-primary/10 p-2 text-primary">
-            {icon}
-          </div>
-          <div>
-            <p className="text-sm font-medium text-muted-foreground">{title}</p>
-            {loading ? (
-              <div className="h-6 w-24 bg-muted animate-pulse rounded mt-1" />
-            ) : (
-              <p className="text-2xl font-bold">{value}</p>
-            )}
-          </div>
+        <div className="space-y-1">
+          <p className="text-xs font-medium text-muted-foreground">{title}</p>
+          <p className="text-2xl font-bold tracking-tight">{value}</p>
         </div>
-        {change !== undefined && !loading && (
-          <div className={cn(
-            "flex items-center gap-1 text-sm font-medium",
-            change >= 0 ? "text-bullish" : "text-bearish"
-          )}>
-            {change >= 0 ? (
-              <TrendingUpIcon className="h-4 w-4" />
-            ) : (
-              <TrendingDownIcon className="h-4 w-4" />
-            )}
-            {Math.abs(change).toFixed(2)}%
-          </div>
-        )}
+        <div className="rounded-lg bg-primary/10 p-2 text-primary">
+          <Icon className="h-5 w-5" />
+        </div>
       </div>
+      {change !== undefined && (
+        <div className={cn(
+          'mt-3 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
+          change >= 0 ? 'badge badge-green' : 'badge badge-red'
+        )}>
+          {change >= 0 ? <TrendingUpIcon className="h-3 w-3" /> : <TrendingDownIcon className="h-3 w-3" />}
+          {`${change >= 0 ? '+' : ''}${Math.abs(change).toFixed(2)}%`}
+        </div>
+      )}
     </div>
   )
 }
 
 export default function DashboardPage() {
-  const { coins, loading, error, lastUpdated, refresh, getChartData } = usePriceData({
-    refreshInterval: 30000,
-    limit: 100
-  })
-  
-  const { watchlist, addToWatchlist, removeFromWatchlist, isInWatchlist } = useSettingsStore()
-  
+  const { coins, loading, error, lastUpdated, refresh, getChartData } = usePriceData({ refreshInterval: 30000, limit: 100 })
+  const { watchlist, addToWatchlist, removeFromWatchlist } = useSettingsStore()
+
   const [marketData, setMarketData] = useState<MarketOverview | null>(null)
   const [selectedCoin, setSelectedCoin] = useState(coins[0] || null)
   const [chartData, setChartData] = useState<CandlestickData[]>([])
   const [refreshing, setRefreshing] = useState(false)
   const [chartLoading, setChartLoading] = useState(false)
 
-  // Fetch market data
   useEffect(() => {
     const fetchMarketData = async () => {
-      try {
-        const data = await getGlobalMarketData()
-        setMarketData(data)
-      } catch (err) {
-        console.error('Error fetching market data:', err)
-      }
+      try { setMarketData(await getGlobalMarketData()) } catch {}
     }
-    
-    fetchMarketData()
-    const interval = setInterval(fetchMarketData, 60000) // Every minute
-    return () => clearInterval(interval)
+    fetchMarketData(); const id = setInterval(fetchMarketData, 60000); return () => clearInterval(id)
   }, [])
 
-  // Set initial selected coin
   useEffect(() => {
-    if (coins.length > 0 && !selectedCoin) {
-      const bitcoin = coins.find(coin => coin.id === 'bitcoin') || coins[0]
-      setSelectedCoin(bitcoin)
-    }
+    if (coins.length > 0 && !selectedCoin) setSelectedCoin(coins.find(c => c.id === 'bitcoin') || coins[0])
   }, [coins, selectedCoin])
 
-  // Fetch chart data when selected coin changes
   useEffect(() => {
-    if (!selectedCoin) return
-    
-    const fetchChart = async () => {
+    if (!selectedCoin) return;
+    (async () => {
       setChartLoading(true)
-      try {
-        const data = await getChartData(selectedCoin.id, 7) // 7 days of data
-        setChartData(data)
-      } catch (err) {
-        console.error('Error fetching chart data:', err)
-        setChartData([])
-      } finally {
-        setChartLoading(false)
-      }
-    }
-    
-    fetchChart()
+      try { setChartData(await getChartData(selectedCoin.id, 7)) } finally { setChartLoading(false) }
+    })()
   }, [selectedCoin, getChartData])
 
-  const handleRefresh = async () => {
-    setRefreshing(true)
-    await refresh()
-    setRefreshing(false)
-  }
-
-  const handleCoinSelect = (coin: typeof coins[0]) => {
-    setSelectedCoin(coin)
-  }
-
-  const handleAddToWatchlist = (coinId: string) => {
-    const coin = coins.find(c => c.id === coinId)
-    if (coin) {
-      addToWatchlist(coin.id, coin.symbol, coin.name)
-    }
-  }
-
-  const handleRemoveFromWatchlist = (coinId: string) => {
-    removeFromWatchlist(coinId)
-  }
+  const handleRefresh = async () => { setRefreshing(true); await refresh(); setRefreshing(false) }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-background">
-        <Header />
-        <div className="container mx-auto px-4 py-8">
-          <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
-            <AlertCircleIcon className="h-16 w-16 text-bearish" />
-            <h2 className="text-2xl font-bold">Something went wrong</h2>
-            <p className="text-muted-foreground text-center max-w-md">{error}</p>
-            <button
-              onClick={handleRefresh}
-              className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
-            >
-              Try Again
-            </button>
-          </div>
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex min-h-[400px] flex-col items-center justify-center space-y-4">
+          <AlertCircleIcon className="h-16 w-16 text-bearish" />
+          <h2 className="text-2xl font-bold">Something went wrong</h2>
+          <p className="max-w-md text-center text-muted-foreground">{error}</p>
+          <button onClick={handleRefresh} className="btn btn-primary">Try Again</button>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-      
-      <main className="container mx-auto px-4 py-8 space-y-8">
-        {/* Page Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">
-              Crypto Trading Dashboard
-            </h1>
-            <p className="text-muted-foreground">
-              Real-time cryptocurrency market data and portfolio tracking
-            </p>
-          </div>
-          <div className="flex items-center gap-4">
-            {lastUpdated && (
-              <div className="text-sm text-muted-foreground">
-                Last updated: {formatTimeAgo(lastUpdated)}
-              </div>
-            )}
-            <button
-              onClick={handleRefresh}
-              disabled={refreshing}
-              className={cn(
-                "flex items-center gap-2 px-3 py-2 rounded-md border bg-background hover:bg-muted transition-colors",
-                refreshing && "opacity-50 cursor-not-allowed"
-              )}
-            >
-              <RefreshCwIcon className={cn("h-4 w-4", refreshing && "animate-spin")} />
-              Refresh
-            </button>
-          </div>
+    <div className="space-y-8">
+      {/* Header actions */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Crypto Trading Dashboard</h1>
+          <p className="text-muted-foreground">Real-time cryptocurrency market data and portfolio tracking</p>
         </div>
+        <div className="flex items-center gap-3">
+          {lastUpdated && (
+            <div className="text-sm text-muted-foreground">Last updated: {formatTimeAgo(lastUpdated)}</div>
+          )}
+          <button onClick={handleRefresh} disabled={refreshing} className={cn('btn btn-outline', refreshing && 'opacity-50')}> 
+            <RefreshCwIcon className={cn('h-4 w-4', refreshing && 'animate-spin')} /> Refresh
+          </button>
+        </div>
+      </div>
 
-        {/* Market Stats */}
-        {marketData && (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-            <MarketStatsCard
-              title="Total Market Cap"
-              value={formatNumber(marketData.totalMarketCap)}
-              change={marketData.marketCapChange24h / marketData.totalMarketCap * 100}
-              icon={<DollarSignIcon className="h-5 w-5" />}
-            />
-            <MarketStatsCard
-              title="24h Volume"
-              value={formatNumber(marketData.totalVolume24h)}
-              icon={<BarChart3Icon className="h-5 w-5" />}
-            />
-            <MarketStatsCard
-              title="Bitcoin Dominance"
-              value={`${marketData.bitcoinDominance.toFixed(1)}%`}
-              icon={<TrendingUpIcon className="h-5 w-5" />}
-            />
-            <MarketStatsCard
-              title="Active Coins"
-              value={marketData.activeCoins.toLocaleString()}
-              icon={<EyeIcon className="h-5 w-5" />}
-            />
-          </div>
-        )}
+      {/* Market stats */}
+      {marketData && (
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+          <Stat title="Total Market Cap" value={formatNumber(marketData.totalMarketCap)} change={(marketData.marketCapChange24h / marketData.totalMarketCap) * 100} icon={DollarSignIcon} />
+          <Stat title="24h Volume" value={formatNumber(marketData.totalVolume24h)} icon={BarChart3Icon} />
+          <Stat title="Bitcoin Dominance" value={`${marketData.bitcoinDominance.toFixed(1)}%`} icon={TrendingUpIcon} />
+          <Stat title="Active Coins" value={marketData.activeCoins.toLocaleString()} icon={EyeIcon} />
+        </div>
+      )}
 
-        {/* Main Content Grid */}
-        <div className="grid gap-6 lg:grid-cols-3">
-          {/* Chart Section */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Chart Header */}
+      {/* Content */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* Chart Section */}
+        <div className="space-y-4 lg:col-span-2">
+          <div className="glass card p-4">
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-xl font-semibold">
                   {selectedCoin ? `${selectedCoin.name} (${selectedCoin.symbol.toUpperCase()})` : 'Price Chart'}
                 </h2>
                 {selectedCoin && (
-                  <div className="flex items-center gap-4 mt-2">
-                    <span className="text-2xl font-bold font-mono">
-                      ${selectedCoin.current_price.toFixed(2)}
-                    </span>
-                    <div className={cn(
-                      "flex items-center gap-1 text-sm font-medium",
-                      selectedCoin.price_change_percentage_24h >= 0 ? "text-bullish" : "text-bearish"
-                    )}>
-                      {selectedCoin.price_change_percentage_24h >= 0 ? (
-                        <TrendingUpIcon className="h-4 w-4" />
-                      ) : (
-                        <TrendingDownIcon className="h-4 w-4" />
-                      )}
+                  <div className="mt-2 flex items-center gap-3">
+                    <span className="font-mono text-2xl font-bold">${selectedCoin.current_price.toFixed(2)}</span>
+                    <span className={cn('badge', selectedCoin.price_change_percentage_24h >= 0 ? 'badge-green' : 'badge-red')}>
                       {selectedCoin.price_change_percentage_24h >= 0 ? '+' : ''}
                       {selectedCoin.price_change_percentage_24h.toFixed(2)}%
-                    </div>
+                    </span>
                   </div>
                 )}
               </div>
             </div>
-            
-            {/* Chart */}
-            <div className="relative">
+            <div className="relative mt-4">
               {chartLoading && (
-                <div className="absolute inset-0 bg-background/50 backdrop-blur-sm flex items-center justify-center z-10">
+                <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/50 backdrop-blur-sm">
                   <div className="flex items-center gap-2">
                     <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                     <span className="text-sm text-muted-foreground">Loading chart...</span>
                   </div>
                 </div>
               )}
-              <TradingViewChart
-                data={chartData}
-                type="candlestick"
-                height={400}
-                symbol={selectedCoin?.symbol.toUpperCase()}
-                theme="dark"
-                enableVolume
-              />
+              <TradingViewChart data={chartData} type="candlestick" height={420} symbol={selectedCoin?.symbol.toUpperCase()} theme="dark" enableVolume />
             </div>
           </div>
+        </div>
 
-          {/* Watchlist */}
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold">Top Cryptocurrencies</h2>
-              <span className="text-sm text-muted-foreground">
-                {coins.length} coins
-              </span>
-            </div>
-            
+        {/* Watchlist */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold">Top Cryptocurrencies</h2>
+            <span className="text-sm text-muted-foreground">{coins.length} coins</span>
+          </div>
+          <div className="glass card">
             <WatchlistTable
               coins={coins.slice(0, 20)}
               loading={loading}
-              onCoinSelect={handleCoinSelect}
-              onAddToWatchlist={handleAddToWatchlist}
-              onRemoveFromWatchlist={handleRemoveFromWatchlist}
+              onCoinSelect={setSelectedCoin}
+              onAddToWatchlist={(id) => {
+                const coin = coins.find(c => c.id === id); if (coin) addToWatchlist(coin.id, coin.symbol, coin.name)
+              }}
+              onRemoveFromWatchlist={removeFromWatchlist}
               watchlistIds={watchlist.map(w => w.coinId)}
               compact
-              className="h-[500px] overflow-auto"
+              className="max-h-[560px] overflow-auto"
             />
           </div>
         </div>
-      </main>
+      </div>
     </div>
   )
 }
