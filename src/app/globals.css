@@ -112,3 +112,142 @@
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-thumb { @apply bg-border rounded-full; }
 ::-webkit-scrollbar-thumb:hover { @apply bg-muted/60; }
+
+
+/* Enhanced UI/UX Styling for CryptoTraderPro */
+
+/* Typography Enhancements */
+body {
+  @apply antialiased;
+  letter-spacing: -0.5px;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  @apply font-medium tracking-tight;
+}
+
+h1 { @apply text-4xl font-bold; }
+h2 { @apply text-3xl font-bold; }
+h3 { @apply text-2xl font-semibold; }
+h4 { @apply text-xl font-semibold; }
+h5 { @apply text-lg font-semibold; }
+h6 { @apply text-base font-semibold; }
+
+/* Modern Card Styling with Glassmorphism */
+.card-glass {
+  @apply backdrop-blur-md bg-gradient-glass rounded-xl border border-white/10 shadow-glass;
+}
+
+.card-crypto {
+  @apply bg-gradient-to-br from-crypto-900/40 to-crypto-800/20 border border-crypto-700/30 rounded-xl p-4 shadow-lg hover:shadow-neon transition-all duration-300;
+}
+
+/* Trading Indicators */
+.indicator-bullish {
+  @apply text-bullish-500 shadow-neon-green;
+}
+
+.indicator-bearish {
+  @apply text-bearish-500 shadow-neon-red;
+}
+
+/* Smooth Transitions */
+.transition-smooth {
+  @apply transition-all duration-300 ease-out;
+}
+
+/* Focus States */
+.focus-ring {
+  @apply focus:outline-none focus:ring-2 focus:ring-crypto-500 focus:ring-offset-2 focus:ring-offset-slate-900;
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+  @apply w-2;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-slate-800/50;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-crypto-500/40 rounded-full hover:bg-crypto-500/60 transition-colors;
+}
+
+/* Selection Styling */
+::selection {
+  @apply bg-crypto-500/30 text-crypto-100;
+}
+
+/* Loading and Skeleton Effects */
+.skeleton {
+  @apply animate-shimmer bg-gradient-to-r from-slate-700 via-slate-600 to-slate-700 bg-[length:1000px_100%] rounded;
+}
+
+/* Responsive Grid */
+.grid-responsive {
+  @apply grid gap-4 auto-cols-max;
+}
+
+@media (max-width: 768px) {
+  .grid-responsive {
+    @apply gap-3;
+  }
+}
+
+/* Chart Styling */
+.chart-container {
+  @apply rounded-xl overflow-hidden shadow-md;
+}
+
+.chart-candlestick {
+  @apply w-full h-96 md:h-[500px];
+}
+
+/* Data Table Enhancements */
+.table-striped tbody tr:nth-child(odd) {
+  @apply bg-slate-800/30;
+}
+
+.table-hover tbody tr {
+  @apply hover:bg-slate-800/50 transition-colors;
+}
+
+/* Utility Classes for Common Patterns */
+.flex-center {
+  @apply flex items-center justify-center;
+}
+
+.flex-between {
+  @apply flex items-center justify-between;
+}
+
+.text-gradient {
+  @apply bg-gradient-to-r from-crypto-400 via-crypto-500 to-crypto-600 bg-clip-text text-transparent;
+}
+
+.text-gradient-bullish {
+  @apply bg-gradient-bullish bg-clip-text text-transparent;
+}
+
+.text-gradient-bearish {
+  @apply bg-gradient-bearish bg-clip-text text-transparent;
+}
+
+/* Interactive Elements */
+.btn-interactive {
+  @apply active:scale-95 transition-transform duration-150 cursor-pointer;
+}
+
+/* Status Badges */
+.badge-success {
+  @apply px-3 py-1 rounded-full bg-bullish-500/20 text-bullish-500 text-sm font-medium;
+}
+
+.badge-danger {
+  @apply px-3 py-1 rounded-full bg-bearish-500/20 text-bearish-500 text-sm font-medium;
+}
+
+.badge-info {
+  @apply px-3 py-1 rounded-full bg-crypto-500/20 text-crypto-400 text-sm font-medium;
+}
