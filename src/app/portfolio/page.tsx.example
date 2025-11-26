@@ -1,0 +1,36 @@
+// Example Portfolio Dashboard Page
+// Rename to page.tsx to use
+
+import { PortfolioOverview } from '@/components/portfolio/PortfolioOverview'
+import { AssetList } from '@/components/portfolio/AssetList'
+import { LivePriceChart } from '@/components/charts/LivePriceChart'
+
+export default function PortfolioPage() {
+  return (
+    <main className="container mx-auto space-y-8 p-6">
+      {/* Page Header */}
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Portfolio</h1>
+        <p className="mt-2 text-muted-foreground">
+          Track your crypto investments and performance
+        </p>
+      </div>
+
+      {/* Portfolio Analytics Overview */}
+      <PortfolioOverview />
+
+      {/* Asset List */}
+      <AssetList />
+
+      {/* Optional: Bitcoin Chart */}
+      <div>
+        <h2 className="mb-4 text-2xl font-semibold">Market Overview</h2>
+        <LivePriceChart 
+          symbol="BTCUSDT" 
+          interval="1h" 
+          height={400} 
+        />
+      </div>
+    </main>
+  )
+}

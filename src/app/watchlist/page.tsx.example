@@ -1,0 +1,28 @@
+// Example Watchlist Dashboard Page
+// Rename to page.tsx to use
+
+import { WatchlistTable } from '@/components/watchlist/WatchlistTable'
+import { PriceAlertManager } from '@/components/watchlist/PriceAlertManager'
+
+export default function WatchlistPage() {
+  return (
+    <main className="container mx-auto space-y-8 p-6">
+      {/* Page Header */}
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Watchlist</h1>
+        <p className="mt-2 text-muted-foreground">
+          Monitor your favorite cryptocurrencies and set price alerts
+        </p>
+      </div>
+
+      {/* Watchlist Table with Live Updates */}
+      <WatchlistTable 
+        autoUpdate={true} 
+        updateInterval={30000} 
+      />
+
+      {/* Price Alert Manager */}
+      <PriceAlertManager />
+    </main>
+  )
+}
