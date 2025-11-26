@@ -64,6 +64,51 @@ export interface PriceUpdate {
 }
 
 // -----------------------------------------------------------------------------
+// Binance-specific Types
+// -----------------------------------------------------------------------------
+
+export interface OrderBookData {
+  lastUpdateId: number
+  bids: Array<{
+    price: number
+    quantity: number
+  }>
+  asks: Array<{
+    price: number
+    quantity: number
+  }>
+}
+
+export interface TradeData {
+  id: number
+  price: number
+  quantity: number
+  time: number
+  isBuyerMaker: boolean
+  isBestMatch: boolean
+}
+
+export interface Binance24hrStats {
+  symbol: string
+  priceChange: number
+  priceChangePercent: number
+  weightedAvgPrice: number
+  prevClosePrice: number
+  lastPrice: number
+  lastQty: number
+  bidPrice: number
+  askPrice: number
+  openPrice: number
+  highPrice: number
+  lowPrice: number
+  volume: number
+  quoteVolume: number
+  openTime: number
+  closeTime: number
+  count: number
+}
+
+// -----------------------------------------------------------------------------
 // Portfolio Management
 // -----------------------------------------------------------------------------
 
@@ -80,11 +125,13 @@ export interface PortfolioAsset {
   pnlPercent: number
   allocation: number
   lastUpdated: string
+  image?: string
 }
 
 export interface Portfolio {
   id: string
   name: string
+  description?: string
   totalValue: number
   totalPnl: number
   totalPnlPercent: number
@@ -96,15 +143,50 @@ export interface Portfolio {
 export interface Transaction {
   id: string
   portfolioId: string
-  type: 'buy' | 'sell'
+  type: 'buy' | 'sell' | 'transfer_in' | 'transfer_out'
   coinId: string
   symbol: string
+  name: string
   amount: number
   price: number
   total: number
   fees?: number
+  exchange?: string
   notes?: string
   timestamp: string
+}
+
+// -----------------------------------------------------------------------------
+// Watchlist & Alerts
+// -----------------------------------------------------------------------------
+
+export interface WatchlistItem {
+  id: string
+  coinId: string
+  symbol: string
+  name: string
+  image?: string
+  category?: string
+  notes?: string
+  addedAt: string
+  currentPrice?: number
+  priceChange24h?: number
+}
+
+export interface PriceAlert {
+  id: string
+  coinId: string
+  symbol: string
+  name: string
+  type: 'above' | 'below' | 'percent_change'
+  targetPrice: number
+  basePrice?: number // For percent_change alerts
+  currentPrice?: number
+  enabled: boolean
+  triggered: boolean
+  createdAt: string
+  triggeredAt?: string
+  notificationSent?: boolean
 }
 
 // -----------------------------------------------------------------------------
@@ -148,22 +230,40 @@ export interface NewsItem {
 }
 
 // -----------------------------------------------------------------------------
-// Alerts & Notifications
+// Portfolio Analytics
 // -----------------------------------------------------------------------------
 
-export interface PriceAlert {
-  id: string
-  coinId: string
-  symbol: string
-  name: string
-  condition: 'above' | 'below'
-  targetPrice: number
-  currentPrice: number
-  isActive: boolean
-  triggered: boolean
-  createdAt: string
-  triggeredAt?: string
+export interface PortfolioAnalytics {
+  totalValue: number
+  totalCost: number
+  totalPnl: number
+  totalPnlPercent: number
+  dayChange: number
+  dayChangePercent: number
+  bestPerformer: {
+    coinId: string
+    symbol: string
+    pnlPercent: number
+  } | null
+  worstPerformer: {
+    coinId: string
+    symbol: string
+    pnlPercent: number
+  } | null
+  diversificationScore: number
+  riskLevel: 'low' | 'medium' | 'high'
 }
+
+export interface PortfolioHistory {
+  date: string
+  totalValue: number
+  totalPnl: number
+  totalPnlPercent: number
+}
+
+// -----------------------------------------------------------------------------
+// Notifications
+// -----------------------------------------------------------------------------
 
 export interface Notification {
   id: string
@@ -173,6 +273,8 @@ export interface Notification {
   read: boolean
   createdAt: string
   actionUrl?: string
+  coinId?: string
+  metadata?: Record<string, any>
 }
 
 // -----------------------------------------------------------------------------
@@ -217,7 +319,7 @@ export interface BinanceTickerResponse {
 // -----------------------------------------------------------------------------
 
 export interface WebSocketMessage {
-  type: 'price_update' | 'error' | 'connection'
+  type: 'price_update' | 'kline_update' | 'error' | 'connection'
   data: any
   timestamp: number
 }
@@ -237,33 +339,64 @@ export interface BinanceWebSocketTicker {
   p: string // Price change
 }
 
+export interface BinanceWebSocketKline {
+  t: number // Kline start time
+  T: number // Kline close time
+  s: string // Symbol
+  i: string // Interval
+  o: string // Open price
+  c: string // Close price
+  h: string // High price
+  l: string // Low price
+  v: string // Volume
+  x: boolean // Is this kline closed?
+}
+
 // -----------------------------------------------------------------------------
 // UI State Types
 // -----------------------------------------------------------------------------
 
 export interface ChartConfig {
-  interval: '1m' | '5m' | '15m' | '1h' | '4h' | '1d' | '1w'
+  interval: '1m' | '3m' | '5m' | '15m' | '30m' | '1h' | '2h' | '4h' | '6h' | '12h' | '1d' | '3d' | '1w' | '1M'
   type: 'candlestick' | 'line' | 'area'
   indicators: string[]
   theme: 'light' | 'dark'
 }
 
-export interface WatchlistItem {
-  coinId: string
-  symbol: string
-  name: string
-  addedAt: string
-  alertsEnabled: boolean
-}
-
 export interface AppSettings {
   theme: 'light' | 'dark' | 'system'
-  currency: 'usd' | 'eur' | 'btc'
+  currency: 'usd' | 'eur' | 'btc' | 'eth'
   refreshInterval: number
   enableNotifications: boolean
   enableSounds: boolean
   compactMode: boolean
   defaultChartInterval: ChartConfig['interval']
+  language: 'en' | 'es' | 'fr' | 'de' | 'zh' | 'ja' | 'ko'
+}
+
+// -----------------------------------------------------------------------------
+// Trading Types (Future Implementation)
+// -----------------------------------------------------------------------------
+
+export interface Order {
+  id: string
+  symbol: string
+  side: 'buy' | 'sell'
+  type: 'market' | 'limit' | 'stop_limit'
+  quantity: number
+  price?: number
+  stopPrice?: number
+  status: 'pending' | 'filled' | 'cancelled' | 'rejected'
+  createdAt: string
+  executedAt?: string
+}
+
+export interface Balance {
+  asset: string
+  free: number
+  locked: number
+  total: number
+  usdValue: number
 }
 
 // -----------------------------------------------------------------------------
@@ -282,4 +415,30 @@ export interface ErrorState {
   error?: ApiError
   retryCount: number
   lastRetry?: string
+}
+
+// -----------------------------------------------------------------------------
+// Utility Types
+// -----------------------------------------------------------------------------
+
+export type TimeFrame = '1h' | '24h' | '7d' | '30d' | '1y' | 'all'
+export type SortDirection = 'asc' | 'desc'
+export type CoinSortField = 'market_cap' | 'price' | 'volume' | 'change_24h' | 'name'
+
+export interface TableFilters {
+  search?: string
+  category?: string
+  minPrice?: number
+  maxPrice?: number
+  minMarketCap?: number
+  maxMarketCap?: number
+  sortField?: CoinSortField
+  sortDirection?: SortDirection
+}
+
+export interface PaginationState {
+  page: number
+  pageSize: number
+  total: number
+  hasMore: boolean
 }
