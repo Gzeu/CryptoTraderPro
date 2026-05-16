@@ -1,115 +1,96 @@
-<div align="center">
-
-<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="#0d9488"/><path d="M6 16h4l2.5-6 3.5 12 2.5-8 2 2.5h5.5" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
-
 # CryptoTraderPro
 
-**Professional real-time cryptocurrency trading dashboard**
+![Version](https://img.shields.io/badge/version-0.4.0-blue)
+![Next.js](https://img.shields.io/badge/Next.js-15-black)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.6-3178C6)
+![License](https://img.shields.io/badge/license-MIT-green)
+[![Deploy](https://github.com/Gzeu/CryptoTraderPro/actions/workflows/deploy.yml/badge.svg)](https://github.com/Gzeu/CryptoTraderPro/actions)
 
-[![Deploy](https://github.com/Gzeu/CryptoTraderPro/actions/workflows/nextjs.yml/badge.svg)](https://github.com/Gzeu/CryptoTraderPro/actions/workflows/nextjs.yml)
-[![Live Demo](https://img.shields.io/badge/live-demo-0d9488?style=flat-square&logo=vercel)](https://gzeu.github.io/CryptoTraderPro/)
-[![Next.js](https://img.shields.io/badge/Next.js-15-black?style=flat-square&logo=nextdotjs)](https://nextjs.org)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
+Professional cryptocurrency trading dashboard built with **Next.js 15**, **TypeScript**, **TailwindCSS**, and **CoinGecko API**.
 
-🌐 **[gzeu.github.io/CryptoTraderPro](https://gzeu.github.io/CryptoTraderPro/)**
-
-</div>
+🔗 **Live** → [gzeu.github.io/CryptoTraderPro](https://gzeu.github.io/CryptoTraderPro)
 
 ---
 
-## ✨ Features
+## Features
 
-| Feature | Description |
+| Feature | Status |
 |---|---|
-| 📊 **Market Table** | Top 100 coins by market cap — live prices, 24h %, sparklines |
-| ⭐ **Watchlist** | Star coins to build your personal watchlist (persisted in memory) |
-| 📡 **Live Ticker** | Scrolling price bar — BTC, ETH, **EGLD**, BNB, SOL and more |
-| 🔍 **Search** | Filter coins by name or symbol instantly |
-| 🌙 **Dark / Light Mode** | System-aware theme with manual toggle, saved to localStorage |
-| 📱 **PWA Ready** | Installable on mobile and desktop |
-| ⚡ **Static Export** | No backend — deployed via GitHub Pages, edge-fast |
-| 🛡️ **Error Boundary** | Catches any runtime crash with a friendly retry screen |
-| 💀 **Skeleton Loaders** | Shimmer placeholders on every data-loading view |
+| Live prices — top 100 coins | ✅ |
+| Sortable columns (Price, 24h%, MCap, Volume) | ✅ |
+| Pagination (25/page) | ✅ |
+| Dark / light mode | ✅ |
+| Coin detail page + OHLC candlestick chart | ✅ |
+| Price alerts (browser notifications) | ✅ |
+| Watchlist (persisted) | ✅ |
+| Portfolio P&L tracker | ✅ |
+| EGLD / MultiversX featured card | ✅ |
+| React Query caching (60s stale) | ✅ |
+| Zod runtime validation | ✅ |
+| Unit tests (Vitest) | ✅ |
+| PWA manifest | ✅ |
+| GitHub Actions → GitHub Pages deploy | ✅ |
 
 ---
 
-## 🚀 Tech Stack
+## Stack
 
-| Layer | Tech |
-|---|---|
-| Framework | Next.js 15 (App Router, `output: export`) |
-| Language | TypeScript 5 |
-| Styling | TailwindCSS 3 + CSS custom properties |
-| State | React `useState` / `useCallback` |
-| Data | CoinGecko API v3 (free tier) |
-| CI/CD | GitHub Actions → GitHub Pages |
+- **Framework** — Next.js 15 (App Router)
+- **Language** — TypeScript 5.6
+- **Styling** — TailwindCSS 3
+- **State** — Zustand + React Query
+- **Charts** — `lightweight-charts` v4 (OHLC), custom SVG sparklines
+- **Validation** — Zod
+- **Testing** — Vitest + Testing Library
+- **Data** — CoinGecko public API
 
 ---
 
-## 🛠 Local Development
+## Getting Started
 
 ```bash
-git clone https://github.com/Gzeu/CryptoTraderPro.git
-cd CryptoTraderPro
-npm install --legacy-peer-deps
-npm run dev
+npm install
+npm run dev          # http://localhost:3000
+npm test             # run unit tests
+npm run type-check   # TypeScript check
 ```
-
-Open [http://localhost:3000](http://localhost:3000).
-
-> **Note:** Free CoinGecko tier has a 30 req/min rate limit. Add your API key to `.env.local` (see `.env.example`) for higher limits.
 
 ---
 
-## 📦 Deployment
-
-Auto-deployed to **GitHub Pages** on every push to `main` via GitHub Actions.
-
-```bash
-npm run build   # generates /out (static HTML)
-```
-
-The workflow uses [`actions/configure-pages`](https://github.com/actions/configure-pages) which auto-sets `basePath` and `output: export` — no manual config needed beyond `next.config.js`.
-
----
-
-## 📁 Project Structure
+## Project Structure
 
 ```
 src/
 ├── app/
-│   ├── layout.tsx        # Root layout — fonts, metadata, OG, PWA
-│   ├── page.tsx          # Dashboard — market table, ticker, KPIs
-│   ├── globals.css       # Design tokens, animations, skeleton
-│   ├── error.tsx         # Global error boundary
-│   └── not-found.tsx     # 404 page
-├── components/           # Reusable UI components
-├── hooks/                # Custom React hooks
-├── lib/                  # Utilities (formatters, API helpers)
-├── store/                # Zustand stores
-└── types/                # TypeScript interfaces
+│   ├── page.tsx              # Dashboard (market table)
+│   ├── coin/[id]/page.tsx    # Coin detail + OHLC chart
+│   ├── portfolio/page.tsx    # Portfolio P&L
+│   ├── watchlist/page.tsx    # Watchlist
+│   └── alerts/page.tsx       # Price alerts manager
+├── components/
+│   ├── charts/               # CandlestickChart, SparklineChart
+│   ├── dashboard/            # KPICard, CoinRow, EGLDCard, AlertsPanel
+│   ├── layout/               # Header, LiveTicker
+│   └── ui/                   # Badge, Skeleton, EmptyState
+├── hooks/                    # useMarketsQuery, useEGLD, useAlertWatcher, useWatchlist, useTheme
+├── lib/
+│   ├── api/coingecko.ts      # All CoinGecko API calls
+│   ├── schemas.ts            # Zod validation schemas
+│   ├── queryClient.ts        # React Query config
+│   └── formatters.ts         # fmtPrice, fmtLarge, fmtPct…
+├── store/                    # watchlistStore, portfolioStore, alertStore
+├── test/                     # Vitest unit tests
+└── types/                    # Shared TypeScript types
 ```
 
 ---
 
-## 🗺 Roadmap
+## Changelog
 
-- [ ] 📈 Candlestick charts (Lightweight Charts / TradingView)
-- [ ] 💼 Portfolio P&L tracker with entry price
-- [ ] 🔔 Price alerts (push notifications)
-- [ ] 🔗 MultiversX / EGLD deep integration
-- [ ] 💱 Multi-currency support (EUR, RON, BTC)
-- [ ] 🧪 Unit tests with Vitest
+See [CHANGELOG.md](./CHANGELOG.md).
 
 ---
 
-## 🤝 Contributing
-
-PRs welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
----
-
-## 📄 License
+## License
 
 MIT © [Gzeu](https://github.com/Gzeu)
