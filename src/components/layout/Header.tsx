@@ -1,21 +1,19 @@
 'use client'
 
-// =============================================================================
-// Header Component - Top navigation and global controls
-// =============================================================================
-
 import React, { useState } from 'react'
 import { useTheme } from 'next-themes'
-import { 
-  SunIcon, 
-  MoonIcon, 
+import {
+  SunIcon,
+  MoonIcon,
   SearchIcon,
   BellIcon,
   SettingsIcon,
   UserIcon,
-  MenuIcon
+  MenuIcon,
+  TrendingUpIcon
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { LiveTicker } from './LiveTicker'
 import { cn } from '@/lib/utils'
 
 interface HeaderProps {
@@ -25,122 +23,69 @@ interface HeaderProps {
 
 export function Header({ onMenuToggle, className }: HeaderProps) {
   const { theme, setTheme } = useTheme()
-  const [searchOpen, setSearchOpen] = useState(false)
-
-  const toggleTheme = () => {
-    setTheme(theme === 'dark' ? 'light' : 'dark')
-  }
+  const toggleTheme = () => setTheme(theme === 'dark' ? 'light' : 'dark')
 
   return (
-    <header className={cn(
-      "sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur-sm",
-      className
-    )}>
+    <header className={cn('sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur-sm', className)}>
       <div className="container mx-auto px-4">
-        <div className="flex h-16 items-center justify-between">
-          {/* Left Section */}
-          <div className="flex items-center gap-4">
-            {/* Mobile menu button */}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="md:hidden"
-              onClick={onMenuToggle}
-            >
+        <div className="flex h-14 items-center justify-between">
+          {/* Logo */}
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="icon" className="md:hidden" onClick={onMenuToggle}>
               <MenuIcon className="h-5 w-5" />
             </Button>
-            
-            {/* Logo */}
             <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center">
-                <span className="font-bold text-primary-foreground text-sm">CT</span>
-              </div>
+              {/* SVG Logo */}
+              <svg width="32" height="32" viewBox="0 0 32 32" fill="none" aria-label="CryptoTraderPro logo">
+                <rect width="32" height="32" rx="8" fill="hsl(221 83% 53%)" />
+                <polyline points="4,22 10,14 16,18 22,8 28,12" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                <circle cx="28" cy="12" r="2" fill="white" />
+              </svg>
               <div className="hidden sm:block">
-                <h1 className="font-bold text-lg">CryptoTraderPro</h1>
-                <p className="text-xs text-muted-foreground">Advanced Trading Dashboard</p>
+                <span className="font-bold text-base leading-tight tracking-tight">CryptoTraderPro</span>
+                <p className="text-[10px] text-muted-foreground leading-none">Advanced Trading Dashboard</p>
               </div>
             </div>
           </div>
 
-          {/* Center Section - Search */}
-          <div className="hidden md:flex flex-1 max-w-md mx-8">
+          {/* Search */}
+          <div className="hidden md:flex flex-1 max-w-sm mx-6">
             <div className="relative w-full">
-              <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <SearchIcon className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
               <input
                 type="text"
                 placeholder="Search cryptocurrencies..."
-                className="w-full rounded-lg border bg-background pl-10 pr-4 py-2 text-sm placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
-                onFocus={() => setSearchOpen(true)}
-                onBlur={() => setTimeout(() => setSearchOpen(false), 200)}
+                className="w-full rounded-lg border bg-secondary/40 pl-9 pr-4 py-1.5 text-sm placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
               />
             </div>
           </div>
 
-          {/* Right Section */}
-          <div className="flex items-center gap-2">
-            {/* Mobile search */}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="md:hidden"
-            >
-              <SearchIcon className="h-5 w-5" />
+          {/* Right actions */}
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="icon" className="md:hidden">
+              <SearchIcon className="h-4 w-4" />
             </Button>
-            
-            {/* Theme toggle */}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleTheme}
-              title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
-            >
-              {theme === 'dark' ? (
-                <SunIcon className="h-5 w-5" />
-              ) : (
-                <MoonIcon className="h-5 w-5" />
-              )}
+            <Button variant="ghost" size="icon" onClick={toggleTheme} title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}>
+              {theme === 'dark' ? <SunIcon className="h-4 w-4" /> : <MoonIcon className="h-4 w-4" />}
             </Button>
-            
-            {/* Notifications */}
             <Button variant="ghost" size="icon">
               <div className="relative">
-                <BellIcon className="h-5 w-5" />
-                <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-bearish animate-pulse" />
+                <BellIcon className="h-4 w-4" />
+                <span className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full bg-[hsl(var(--bearish))] animate-pulse" />
               </div>
             </Button>
-            
-            {/* Settings */}
+            <Button variant="ghost" size="icon"><SettingsIcon className="h-4 w-4" /></Button>
             <Button variant="ghost" size="icon">
-              <SettingsIcon className="h-5 w-5" />
-            </Button>
-            
-            {/* User menu */}
-            <Button variant="ghost" size="icon">
-              <UserIcon className="h-5 w-5" />
+              <div className="h-7 w-7 rounded-full bg-primary/20 flex items-center justify-center">
+                <UserIcon className="h-3.5 w-3.5 text-primary" />
+              </div>
             </Button>
           </div>
         </div>
       </div>
 
-      {/* Market Status Bar */}
-      <div className="border-t bg-muted/30">
-        <div className="container mx-auto px-4">
-          <div className="flex items-center gap-6 py-2 text-xs">
-            <div className="flex items-center gap-2">
-              <span className="status-online" />
-              <span className="text-muted-foreground">Market Open</span>
-            </div>
-            <div className="text-muted-foreground">
-              BTC: <span className="font-mono text-foreground">$43,521.45</span>
-              <span className="text-bullish ml-1">+2.34%</span>
-            </div>
-            <div className="text-muted-foreground">
-              ETH: <span className="font-mono text-foreground">$2,687.92</span>
-              <span className="text-bearish ml-1">-1.23%</span>
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* Live Ticker */}
+      <LiveTicker />
     </header>
   )
 }
