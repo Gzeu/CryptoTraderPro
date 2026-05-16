@@ -1,205 +1,193 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import React, { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { X, Plus, BarChart2 } from 'lucide-react'
-import { ComparisonChart, type ComparisonSeries } from '@/components/charts/ComparisonChart'
-import { useTheme } from '@/hooks/useTheme'
+import { ArrowLeftRight, TrendingUp } from 'lucide-react'
+import { CompareChart } from '@/components/charts/CompareChart'
 import { Skeleton } from '@/components/ui/Skeleton'
-import Link from 'next/link'
+import { Badge } from '@/components/ui/Badge'
+import { fmtPrice, fmtLarge, fmtPct } from '@/lib/formatters'
+import { TOP_COINS } from '@/lib/constants'
 
-// ---- coin picker data (top 20 + EGLD) ----
-const COINS = [
-  { id: 'bitcoin',        name: 'Bitcoin',     symbol: 'BTC'  },
-  { id: 'ethereum',       name: 'Ethereum',    symbol: 'ETH'  },
-  { id: 'elrond-erd-2',   name: 'EGLD',        symbol: 'EGLD' },
-  { id: 'solana',         name: 'Solana',      symbol: 'SOL'  },
-  { id: 'binancecoin',    name: 'BNB',         symbol: 'BNB'  },
-  { id: 'cardano',        name: 'Cardano',     symbol: 'ADA'  },
-  { id: 'ripple',         name: 'XRP',         symbol: 'XRP'  },
-  { id: 'dogecoin',       name: 'Dogecoin',    symbol: 'DOGE' },
-  { id: 'polkadot',       name: 'Polkadot',    symbol: 'DOT'  },
-  { id: 'avalanche-2',    name: 'Avalanche',   symbol: 'AVAX' },
-  { id: 'chainlink',      name: 'Chainlink',   symbol: 'LINK' },
-  { id: 'uniswap',        name: 'Uniswap',     symbol: 'UNI'  },
-  { id: 'litecoin',       name: 'Litecoin',    symbol: 'LTC'  },
-  { id: 'cosmos',         name: 'Cosmos',      symbol: 'ATOM' },
-  { id: 'stellar',        name: 'Stellar',     symbol: 'XLM'  },
+const DAYS_OPTIONS = [
+  { label: '7D', value: 7 },
+  { label: '30D', value: 30 },
+  { label: '90D', value: 90 },
+  { label: '1Y', value: 365 },
 ]
 
-type Range = { label: string; days: number }
-const RANGES: Range[] = [
-  { label: '7D',  days: 7   },
-  { label: '1M',  days: 30  },
-  { label: '3M',  days: 90  },
-  { label: '1Y',  days: 365 },
+const COIN_COLORS = [
+  'var(--color-primary)',
+  'var(--color-orange)',
+  'var(--color-purple)',
+  'var(--color-blue)',
 ]
 
-function usePriceHistory(coinId: string, days: number) {
-  return useQuery({
-    queryKey: ['compare-prices', coinId, days],
-    queryFn: async () => {
-      const res = await fetch(
-        `https://api.coingecko.com/api/v3/coins/${coinId}/market_chart?vs_currency=usd&days=${days}`,
-      )
-      if (!res.ok) throw new Error('fetch failed')
-      const data = await res.json() as { prices: [number, number][] }
-      return data.prices
-    },
-    staleTime: 300_000,
-  })
+async function fetchChart(id: string, days: number) {
+  const res = await fetch(`/api/chart/${id}?days=${days}`)
+  if (!res.ok) throw new Error('Failed to fetch chart')
+  return res.json()
 }
 
-function CoinTag({ name, onRemove }: { name: string; onRemove: () => void }) {
+async function fetchCoin(id: string) {
+  const res = await fetch(`/api/coin/${id}`)
+  if (!res.ok) throw new Error('Failed to fetch coin')
+  return res.json()
+}
+
+function StatCard({ label, valueA, valueB, format = 'price' }: { label: string; valueA: any; valueB: any; format?: 'price' | 'large' | 'pct' | 'raw' }) {
+  const fmt = (v: any) => {
+    if (v == null) return '—'
+    if (format === 'price') return fmtPrice(v)
+    if (format === 'large') return fmtLarge(v)
+    if (format === 'pct') return fmtPct(v)
+    return String(v)
+  }
   return (
-    <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium"
-      style={{ background: 'var(--color-primary-highlight)', color: 'var(--color-primary)' }}>
-      {name}
-      <button onClick={onRemove} aria-label={`Remove ${name}`}
-        className="hover:opacity-60 transition-opacity"><X size={11} /></button>
-    </span>
+    <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+      <p className="text-xs text-[var(--color-text-muted)] mb-2 font-medium uppercase tracking-wide">{label}</p>
+      <div className="flex gap-4">
+        <span className="tabular-nums font-semibold text-[var(--color-primary)]">{fmt(valueA)}</span>
+        <span className="text-[var(--color-divider)]">/</span>
+        <span className="tabular-nums font-semibold text-[var(--color-orange)]">{fmt(valueB)}</span>
+      </div>
+    </div>
   )
 }
 
-// Loader for a single coin's data — renders nothing, just feeds into parent series
-function CoinLoader({
-  coinId, coinName, days,
-  onLoaded,
-}: { coinId: string; coinName: string; days: number; onLoaded: (s: ComparisonSeries) => void }) {
-  const { data } = useQuery({
-    queryKey: ['compare-prices', coinId, days],
-    queryFn: async () => {
-      const res = await fetch(
-        `https://api.coingecko.com/api/v3/coins/${coinId}/market_chart?vs_currency=usd&days=${days}`,
-      )
-      if (!res.ok) throw new Error('fetch failed')
-      const d = await res.json() as { prices: [number, number][] }
-      return d.prices
-    },
-    staleTime: 300_000,
-  })
-
-  if (data) onLoaded({ coinId, coinName, prices: data })
-  return null
-}
-
 export default function ComparePage() {
-  const { theme } = useTheme()
-  const isDark    = theme === 'dark'
+  const coinOptions = TOP_COINS.slice(0, 30)
+  const [idA, setIdA] = useState('bitcoin')
+  const [idB, setIdB] = useState('ethereum')
+  const [days, setDays] = useState(30)
+  const [normalized, setNormalized] = useState(true)
 
-  const [selected, setSelected] = useState<typeof COINS>([COINS[0], COINS[1], COINS[2]])
-  const [range,    setRange]    = useState<Range>(RANGES[1])
-  const [series,   setSeries]   = useState<ComparisonSeries[]>([])
+  const { data: chartA, isLoading: loadingA } = useQuery({ queryKey: ['chart', idA, days], queryFn: () => fetchChart(idA, days), staleTime: 5 * 60_000 })
+  const { data: chartB, isLoading: loadingB } = useQuery({ queryKey: ['chart', idB, days], queryFn: () => fetchChart(idB, days), staleTime: 5 * 60_000 })
+  const { data: coinA } = useQuery({ queryKey: ['coin', idA], queryFn: () => fetchCoin(idA), staleTime: 60_000 })
+  const { data: coinB } = useQuery({ queryKey: ['coin', idB], queryFn: () => fetchCoin(idB), staleTime: 60_000 })
 
-  const available = COINS.filter(c => !selected.find(s => s.id === c.id))
+  const seriesA = useMemo(() =>
+    (chartA?.prices ?? []).map(([ts, price]: [number, number]) => ({ ts, price })),
+    [chartA]
+  )
+  const seriesB = useMemo(() =>
+    (chartB?.prices ?? []).map(([ts, price]: [number, number]) => ({ ts, price })),
+    [chartB]
+  )
 
-  function addCoin(coin: typeof COINS[0]) {
-    if (selected.length >= 6) return
-    setSelected(prev => [...prev, coin])
-  }
+  const loading = loadingA || loadingB
 
-  function removeCoin(id: string) {
-    setSelected(prev => prev.filter(c => c.id !== id))
-    setSeries(prev => prev.filter(s => s.coinId !== id))
-  }
+  const nameA = coinA?.name ?? idA
+  const nameB = coinB?.name ?? idB
 
-  const handleLoaded = useCallback((s: ComparisonSeries) => {
-    setSeries(prev => {
-      const exists = prev.find(p => p.coinId === s.coinId)
-      if (exists && exists.prices.length === s.prices.length) return prev
-      return [...prev.filter(p => p.coinId !== s.coinId), s]
-    })
-  }, [])
-
-  const loading = selected.some(c => !series.find(s => s.coinId === c.id))
+  const perfA = seriesA.length > 1 ? ((seriesA.at(-1)!.price - seriesA[0].price) / seriesA[0].price) * 100 : null
+  const perfB = seriesB.length > 1 ? ((seriesB.at(-1)!.price - seriesB[0].price) / seriesB[0].price) * 100 : null
+  const winner = perfA != null && perfB != null ? (perfA >= perfB ? nameA : nameB) : null
 
   return (
-    <div className="min-h-screen" style={{ background: 'var(--color-bg)', color: 'var(--color-text)' }}>
-
+    <main className="max-w-[var(--content-wide)] mx-auto px-4 py-8 space-y-6">
       {/* Header */}
-      <header className="sticky top-0 z-40 border-b"
-        style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}>
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 h-14 flex items-center gap-3">
-          <Link href="/" className="p-1.5 rounded-lg hover:opacity-70 transition-opacity text-sm"
-            style={{ color: 'var(--color-text-muted)' }}>← Dashboard</Link>
-          <BarChart2 size={16} style={{ color: 'var(--color-primary)' }} />
-          <span className="font-bold">Price Comparison</span>
-          <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>normalised to 100%</span>
-        </div>
-      </header>
+      <div>
+        <h1 className="text-[var(--text-xl)] font-display font-bold text-[var(--color-text)] flex items-center gap-2">
+          <ArrowLeftRight size={22} className="text-[var(--color-primary)]" />
+          Compare Coins
+        </h1>
+        <p className="text-sm text-[var(--color-text-muted)] mt-1">Side-by-side performance comparison, normalized to 100%</p>
+      </div>
 
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6 space-y-4">
-
-        {/* Data loaders (invisible) */}
-        {selected.map(c => (
-          <CoinLoader key={`${c.id}-${range.days}`}
-            coinId={c.id} coinName={c.name} days={range.days}
-            onLoaded={handleLoaded}
-          />
+      {/* Controls */}
+      <div className="flex flex-wrap gap-3 items-end p-4 rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)]">
+        {[{ label: 'Coin A', value: idA, set: setIdA, color: 'text-[var(--color-primary)]' }, { label: 'Coin B', value: idB, set: setIdB, color: 'text-[var(--color-orange)]' }].map(({ label, value, set, color }) => (
+          <div key={label} className="flex flex-col gap-1">
+            <label className={`text-xs font-medium ${color}`}>{label}</label>
+            <select
+              value={value}
+              onChange={e => set(e.target.value)}
+              className="h-9 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 text-sm text-[var(--color-text)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] transition"
+            >
+              {coinOptions.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
         ))}
 
-        {/* Controls */}
-        <div className="rounded-xl border p-4 space-y-3"
-          style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}>
-          {/* Selected coins */}
-          <div className="flex flex-wrap gap-2 items-center">
-            {selected.map(c => (
-              <CoinTag key={c.id} name={c.name} onRemove={() => removeCoin(c.id)} />
-            ))}
-            {selected.length < 6 && (
-              <div className="relative group">
-                <button
-                  className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border transition-opacity hover:opacity-80"
-                  style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-muted)' }}>
-                  <Plus size={11} /> Add coin
-                </button>
-                <div className="absolute top-full left-0 mt-1 z-50 hidden group-focus-within:block group-hover:block
-                  rounded-xl border shadow-lg overflow-hidden"
-                  style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)', minWidth: 180 }}>
-                  {available.map(c => (
-                    <button key={c.id} onClick={() => addCoin(c)}
-                      className="w-full text-left px-3 py-2 text-sm transition-colors hover:bg-black/5 dark:hover:bg-white/5"
-                      style={{ color: 'var(--color-text)' }}>
-                      {c.name} <span style={{ color: 'var(--color-text-muted)' }}>{c.symbol}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-          {/* Range picker */}
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-[var(--color-text-muted)]">Range</label>
           <div className="flex gap-1">
-            {RANGES.map(r => (
-              <button key={r.days} onClick={() => { setRange(r); setSeries([]) }}
-                className="px-3 py-1 rounded-lg text-xs font-medium transition-all"
-                style={range.days === r.days
-                  ? { background: 'var(--color-primary)', color: '#fff' }
-                  : { color: 'var(--color-text-muted)', background: 'var(--color-surface-2)' }}>
-                {r.label}
+            {DAYS_OPTIONS.map(o => (
+              <button
+                key={o.value}
+                onClick={() => setDays(o.value)}
+                className={`h-9 px-3 rounded-lg text-sm font-medium transition-colors ${
+                  days === o.value
+                    ? 'bg-[var(--color-primary)] text-white'
+                    : 'bg-[var(--color-surface-offset)] text-[var(--color-text-muted)] hover:bg-[var(--color-surface-dynamic)]'
+                }`}
+              >
+                {o.label}
               </button>
             ))}
           </div>
         </div>
 
-        {/* Chart */}
-        <div className="rounded-xl border p-4"
-          style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}>
-          {loading
-            ? <Skeleton style={{ height: 300, borderRadius: 8 }} />
-            : <ComparisonChart
-                series={series.filter(s => selected.find(c => c.id === s.coinId))}
-                isDark={isDark}
-                height={300}
-              />
-          }
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-[var(--color-text-muted)]">Mode</label>
+          <button
+            onClick={() => setNormalized(n => !n)}
+            className={`h-9 px-3 rounded-lg text-sm font-medium transition-colors ${
+              normalized
+                ? 'bg-[var(--color-primary-highlight)] text-[var(--color-primary)]'
+                : 'bg-[var(--color-surface-offset)] text-[var(--color-text-muted)] hover:bg-[var(--color-surface-dynamic)]'
+            }`}
+          >
+            {normalized ? 'Normalized %' : 'Raw Price'}
+          </button>
         </div>
+      </div>
 
-        {/* Legend note */}
-        <p className="text-xs" style={{ color: 'var(--color-text-faint)' }}>
-          Chart shows % change from the start of the selected period. All coins start at 0%.
-          Powered by CoinGecko.
-        </p>
-      </main>
-    </div>
+      {/* Performance summary */}
+      {perfA != null && perfB != null && (
+        <div className="flex flex-wrap items-center gap-3 p-3 rounded-xl bg-[var(--color-surface-offset)] border border-[var(--color-border)] text-sm">
+          <TrendingUp size={15} className="text-[var(--color-primary)]" />
+          <span className="text-[var(--color-text-muted)]">Over {days}d:</span>
+          <span className="font-semibold text-[var(--color-primary)] tabular-nums">{nameA}: {fmtPct(perfA)}</span>
+          <span className="text-[var(--color-divider)]">vs</span>
+          <span className="font-semibold text-[var(--color-orange)] tabular-nums">{nameB}: {fmtPct(perfB)}</span>
+          {winner && (
+            <Badge variant="success">🏆 {winner} outperformed</Badge>
+          )}
+        </div>
+      )}
+
+      {/* Chart */}
+      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+        {loading ? (
+          <Skeleton className="w-full h-[340px] rounded-lg" />
+        ) : seriesA.length > 0 && seriesB.length > 0 ? (
+          <CompareChart
+            coinA={{ id: idA, name: nameA, color: COIN_COLORS[0], data: seriesA }}
+            coinB={{ id: idB, name: nameB, color: COIN_COLORS[1], data: seriesB }}
+            normalized={normalized}
+          />
+        ) : (
+          <div className="flex items-center justify-center h-[340px] text-[var(--color-text-muted)] text-sm">No data available</div>
+        )}
+      </div>
+
+      {/* Stats grid */}
+      <div>
+        <h2 className="text-sm font-semibold text-[var(--color-text-muted)] uppercase tracking-wide mb-3">Stats — <span className="text-[var(--color-primary)]">{nameA}</span> vs <span className="text-[var(--color-orange)]">{nameB}</span></h2>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+          <StatCard label="Current Price" valueA={coinA?.market_data?.current_price?.usd} valueB={coinB?.market_data?.current_price?.usd} format="price" />
+          <StatCard label="Market Cap" valueA={coinA?.market_data?.market_cap?.usd} valueB={coinB?.market_data?.market_cap?.usd} format="large" />
+          <StatCard label="24h Volume" valueA={coinA?.market_data?.total_volume?.usd} valueB={coinB?.market_data?.total_volume?.usd} format="large" />
+          <StatCard label="24h Change" valueA={coinA?.market_data?.price_change_percentage_24h} valueB={coinB?.market_data?.price_change_percentage_24h} format="pct" />
+          <StatCard label="7d Change" valueA={coinA?.market_data?.price_change_percentage_7d} valueB={coinB?.market_data?.price_change_percentage_7d} format="pct" />
+          <StatCard label="ATH" valueA={coinA?.market_data?.ath?.usd} valueB={coinB?.market_data?.ath?.usd} format="price" />
+          <StatCard label="Circulating Supply" valueA={coinA?.market_data?.circulating_supply} valueB={coinB?.market_data?.circulating_supply} format="large" />
+          <StatCard label="Market Cap Rank" valueA={coinA?.market_cap_rank} valueB={coinB?.market_cap_rank} format="raw" />
+        </div>
+      </div>
+    </main>
   )
 }
