@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { RefreshCw, Moon, Sun, Search, Keyboard, X, Bell } from 'lucide-react'
+import { RefreshCw, Moon, Sun, Search, Keyboard, X, Bell, BarChart2 } from 'lucide-react'
 import { useMarketsQuery } from '@/hooks/useMarketsQuery'
 import { useTheme } from '@/hooks/useTheme'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
@@ -11,10 +11,11 @@ import { SearchModal } from '@/components/layout/SearchModal'
 import { useAlertStore } from '@/store/alertStore'
 
 const NAV = [
-  { href: '/',          label: 'Dashboard' },
-  { href: '/watchlist', label: 'Watchlist' },
-  { href: '/portfolio', label: 'Portfolio' },
-  { href: '/alerts',    label: 'Alerts' },
+  { href: '/',           label: 'Dashboard' },
+  { href: '/watchlist',  label: 'Watchlist' },
+  { href: '/portfolio',  label: 'Portfolio' },
+  { href: '/alerts',     label: 'Alerts' },
+  { href: '/backtest',   label: 'Backtest' },
 ]
 
 const SHORTCUT_HELP = [
@@ -23,6 +24,7 @@ const SHORTCUT_HELP = [
   { key: 'W',   desc: 'Watchlist' },
   { key: 'P',   desc: 'Portfolio' },
   { key: 'A',   desc: 'Alerts' },
+  { key: 'B',   desc: 'Backtest' },
   { key: '?',   desc: 'This help' },
   { key: 'Esc', desc: 'Close modal' },
 ]
@@ -37,7 +39,6 @@ export function Header() {
   const [searchOpen, setSearchOpen] = useState(false)
   const [helpOpen,   setHelpOpen]   = useState(false)
 
-  // Wire global keyboard shortcuts
   useKeyboardShortcuts({
     onSearch: () => setSearchOpen(true),
     onHelp:   () => setHelpOpen(h => !h),
@@ -109,10 +110,19 @@ export function Header() {
                 <span className="absolute top-1 right-1 w-2 h-2 rounded-full" style={{ background: 'var(--primary)' }} />
               )}
             </Link>
+            <Link href="/backtest" className="p-2 rounded-lg hover:opacity-70 transition-opacity" style={{ color: 'var(--text-muted)' }} aria-label="Backtest">
+              <BarChart2 size={15} />
+            </Link>
             <button onClick={toggleTheme} title="Toggle theme" className="p-2 rounded-lg hover:opacity-70 transition-opacity" style={{ color: 'var(--text-muted)' }} aria-label="Toggle theme">
               {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
             </button>
-            <button onClick={() => setHelpOpen(h => !h)} title="Keyboard shortcuts" className="p-2 rounded-lg hover:opacity-70 transition-opacity" style={{ color: 'var(--text-muted)' }} aria-label="Keyboard shortcuts">
+            <button
+              onClick={() => setHelpOpen(h => !h)}
+              title="Keyboard shortcuts (?)"
+              className="p-2 rounded-lg hover:opacity-70 transition-opacity"
+              style={{ color: 'var(--text-muted)' }}
+              aria-label="Keyboard shortcuts"
+            >
               <Keyboard size={15} />
             </button>
           </div>
@@ -122,31 +132,43 @@ export function Header() {
       {/* Search Modal */}
       <SearchModal open={searchOpen} onClose={() => setSearchOpen(false)} />
 
-      {/* Keyboard Shortcuts Help */}
+      {/* ⌨️ Keyboard Shortcuts Help Modal — triggered by ? key */}
       {helpOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4"
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center px-4"
           style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}
           onClick={e => { if (e.target === e.currentTarget) setHelpOpen(false) }}
-          role="dialog" aria-modal="true" aria-label="Keyboard shortcuts">
-          <div className="w-full max-w-sm rounded-2xl border overflow-hidden"
+          role="dialog" aria-modal="true" aria-label="Keyboard shortcuts"
+        >
+          <div className="w-full max-w-sm rounded-2xl border overflow-hidden shadow-xl"
             style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+
             <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'var(--border)' }}>
-              <h2 className="font-bold text-sm flex items-center gap-2"><Keyboard size={14} /> Keyboard Shortcuts</h2>
+              <h2 className="font-bold text-sm flex items-center gap-2">
+                <Keyboard size={14} /> Keyboard Shortcuts
+              </h2>
               <button onClick={() => setHelpOpen(false)} className="p-1 rounded hover:opacity-60 transition-opacity" aria-label="Close">
                 <X size={15} style={{ color: 'var(--text-muted)' }} />
               </button>
             </div>
+
             <ul className="py-2">
               {SHORTCUT_HELP.map(s => (
-                <li key={s.key} className="flex items-center justify-between px-4 py-2">
+                <li key={s.key} className="flex items-center justify-between px-4 py-2 hover:opacity-80 transition-opacity">
                   <span className="text-sm" style={{ color: 'var(--text-muted)' }}>{s.desc}</span>
-                  <kbd className="text-xs px-2 py-0.5 rounded font-mono"
-                    style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)' }}>
+                  <kbd
+                    className="text-xs px-2 py-0.5 rounded font-mono"
+                    style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)' }}
+                  >
                     {s.key}
                   </kbd>
                 </li>
               ))}
             </ul>
+
+            <div className="px-4 py-3 border-t" style={{ borderColor: 'var(--border)' }}>
+              <p className="text-xs" style={{ color: 'var(--text-faint)' }}>Press <kbd className="font-mono">?</kbd> or click the keyboard icon to toggle this panel.</p>
+            </div>
           </div>
         </div>
       )}
