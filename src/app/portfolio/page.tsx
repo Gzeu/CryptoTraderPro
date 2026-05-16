@@ -1,238 +1,238 @@
 'use client'
 
 import { useState } from 'react'
-import { ArrowLeft, Plus, Trash2, Download, TrendingUp, TrendingDown } from 'lucide-react'
-import Link from 'next/link'
+import { useQuery } from '@tanstack/react-query'
+import { Trash2, Plus, Download, TrendingUp, TrendingDown, BarChart2 } from 'lucide-react'
 import { usePortfolioStore } from '@/store/portfolioStore'
-import { useMarketsQuery } from '@/hooks/useMarketsQuery'
-import { useLivePrices } from '@/hooks/useLivePrice'
+import { usePortfolioExport } from '@/hooks/usePortfolioExport'
 import { fmtPrice, fmtLarge, fmtPct } from '@/lib/formatters'
-import { EmptyState } from '@/components/ui/EmptyState'
-import { buildPortfolioCsv, downloadCsv, type PortfolioRow } from '@/lib/exportCsv'
-import { ExportButton } from '@/components/portfolio/ExportButton'
+import { Skeleton } from '@/components/ui/Skeleton'
+import Link from 'next/link'
 
-// Map coinId (CoinGecko) → Binance WS symbol
-function toWsSymbol(coinId: string): string {
-  const map: Record<string, string> = {
-    bitcoin:      'BTCUSDT',
-    ethereum:     'ETHUSDT',
-    'elrond-erd-2': 'EGLDUSDT',
-    solana:       'SOLUSDT',
-    binancecoin:  'BNBUSDT',
-    cardano:      'ADAUSDT',
-    ripple:       'XRPUSDT',
-    dogecoin:     'DOGEUSDT',
-    polkadot:     'DOTUSDT',
-    litecoin:     'LTCUSDT',
-    avalanche:    'AVAXUSDT',
-    chainlink:    'LINKUSDT',
-    uniswap:      'UNIUSDT',
-    stellar:      'XLMUSDT',
-    cosmos:       'ATOMUSDT',
-  }
-  return map[coinId.toLowerCase()] ?? `${coinId.toUpperCase()}USDT`
-}
+const COINS = [
+  { id: 'bitcoin',       name: 'Bitcoin',    symbol: 'BTC'  },
+  { id: 'ethereum',      name: 'Ethereum',   symbol: 'ETH'  },
+  { id: 'elrond-erd-2',  name: 'EGLD',       symbol: 'EGLD' },
+  { id: 'solana',        name: 'Solana',     symbol: 'SOL'  },
+  { id: 'binancecoin',   name: 'BNB',        symbol: 'BNB'  },
+  { id: 'cardano',       name: 'Cardano',    symbol: 'ADA'  },
+  { id: 'ripple',        name: 'XRP',        symbol: 'XRP'  },
+  { id: 'dogecoin',      name: 'Dogecoin',   symbol: 'DOGE' },
+  { id: 'polkadot',      name: 'Polkadot',   symbol: 'DOT'  },
+  { id: 'avalanche-2',   name: 'Avalanche',  symbol: 'AVAX' },
+  { id: 'chainlink',     name: 'Chainlink',  symbol: 'LINK' },
+  { id: 'litecoin',      name: 'Litecoin',   symbol: 'LTC'  },
+]
 
 export default function PortfolioPage() {
   const { entries, addEntry, removeEntry } = usePortfolioStore()
-  const { data: coins = [] }              = useMarketsQuery()
+  const { exportCsv, loading: exportLoading } = usePortfolioExport()
 
-  // Build WS symbols for all portfolio entries
-  const wsSymbols = entries.map(e => toWsSymbol(e.coinId))
-  const { priceMap, isLive } = useLivePrices(wsSymbols)
+  const [coinId,    setCoinId]    = useState(COINS[0].id)
+  const [amount,    setAmount]    = useState('')
+  const [buyPrice,  setBuyPrice]  = useState('')
+  const [showForm,  setShowForm]  = useState(false)
 
-  const [coinId,   setCoinId]   = useState('')
-  const [coinName, setCoinName] = useState('')
-  const [amount,   setAmount]   = useState('')
-  const [buyPrice, setBuyPrice] = useState('')
-  const [error,    setError]    = useState('')
-
-  // Build enriched rows — prefer WS live price, fall back to CoinGecko snapshot
-  const rows: PortfolioRow[] = entries.map(e => {
-    const wsKey        = toWsSymbol(e.coinId)
-    const livePrice    = priceMap.get(wsKey)?.price
-    const snapshot     = coins.find(c => c.id === e.coinId)?.current_price
-    const currentPrice = livePrice ?? snapshot ?? e.buyPrice
-    const costBasis    = e.amount * e.buyPrice
-    const currentValue = e.amount * currentPrice
-    const pnlUsd       = currentValue - costBasis
-    const pnlPct       = costBasis > 0 ? (pnlUsd / costBasis) * 100 : 0
-    return { ...e, currentPrice, costBasis, currentValue, pnlUsd, pnlPct }
+  // Fetch live prices for all held coins
+  const heldIds = [...new Set(entries.map(e => e.coinId))]
+  const { data: prices, isLoading: pricesLoading } = useQuery({
+    queryKey: ['portfolio-prices', heldIds.join(',')],
+    queryFn: async () => {
+      if (heldIds.length === 0) return {}
+      const res = await fetch(
+        `https://api.coingecko.com/api/v3/simple/price?ids=${heldIds.join(',')}&vs_currencies=usd`,
+      )
+      const data = await res.json() as Record<string, { usd: number }>
+      return Object.fromEntries(Object.entries(data).map(([k, v]) => [k, v.usd]))
+    },
+    enabled:   heldIds.length > 0,
+    staleTime: 30_000,
+    refetchInterval: 30_000,
   })
 
-  const totalCost   = rows.reduce((s, r) => s + r.costBasis, 0)
-  const totalValue  = rows.reduce((s, r) => s + r.currentValue, 0)
-  const totalPnlUsd = totalValue - totalCost
-  const totalPnlPct = totalCost > 0 ? (totalPnlUsd / totalCost) * 100 : 0
-
   function handleAdd() {
-    const amt = parseFloat(amount)
-    const bp  = parseFloat(buyPrice)
-    if (!coinId.trim() || isNaN(amt) || amt <= 0 || isNaN(bp) || bp <= 0) {
-      setError('Fill in all fields with valid positive numbers.')
-      return
-    }
-    const name = coinName.trim() || coinId.trim()
-    addEntry({ coinId: coinId.trim().toLowerCase(), coinName: name, amount: amt, buyPrice: bp })
-    setCoinId(''); setCoinName(''); setAmount(''); setBuyPrice(''); setError('')
+    const a = parseFloat(amount)
+    const p = parseFloat(buyPrice)
+    if (isNaN(a) || isNaN(p) || a <= 0 || p <= 0) return
+    const coin = COINS.find(c => c.id === coinId)!
+    addEntry({ coinId, coinName: coin.name, amount: a, buyPrice: p })
+    setAmount(''); setBuyPrice(''); setShowForm(false)
   }
 
-  function handleExportCsv() {
-    const csv  = buildPortfolioCsv(rows)
-    const date = new Date().toISOString().slice(0, 10)
-    downloadCsv(csv, `portfolio-${date}.csv`)
-  }
+  // Computed totals
+  const rows = entries.map(e => {
+    const cur    = prices?.[e.coinId] ?? 0
+    const cost   = e.amount * e.buyPrice
+    const value  = e.amount * cur
+    const pnl    = value - cost
+    const pnlPct = cost > 0 ? (pnl / cost) * 100 : 0
+    return { ...e, cur, cost, value, pnl, pnlPct }
+  })
+  const totalCost  = rows.reduce((s, r) => s + r.cost,  0)
+  const totalValue = rows.reduce((s, r) => s + r.value, 0)
+  const totalPnl   = totalValue - totalCost
+  const totalPnlPct = totalCost > 0 ? (totalPnl / totalCost) * 100 : 0
 
   return (
-    <div className="min-h-screen" style={{ background: 'var(--bg)', color: 'var(--text)' }}>
+    <div className="min-h-screen" style={{ background: 'var(--color-bg)', color: 'var(--color-text)' }}>
 
-      {/* Page header */}
-      <header className="sticky top-0 z-40 border-b" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 h-14 flex items-center gap-3">
-          <Link href="/" className="p-1.5 rounded-lg hover:opacity-70 transition-opacity" aria-label="Back">
-            <ArrowLeft size={18} />
-          </Link>
-          <h1 className="font-bold flex-1">Portfolio</h1>
-
-          {/* Live indicator */}
-          {entries.length > 0 && (
-            <span className="hidden sm:flex items-center gap-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>
-              <span
-                className={`w-1.5 h-1.5 rounded-full ${isLive ? 'animate-pulse' : 'opacity-30'}`}
-                style={{ background: isLive ? 'var(--success)' : 'var(--text-faint)' }}
-              />
-              {isLive ? 'Live' : 'Connecting…'}
-            </span>
-          )}
-
-          {/* Export button — uses ExportButton component (WS-aware) */}
-          {rows.length > 0 && (
-            <ExportButton />
-          )}
+      {/* Header */}
+      <header className="sticky top-0 z-40 border-b"
+        style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}>
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 h-14 flex items-center gap-3">
+          <Link href="/" className="text-sm hover:opacity-70 transition-opacity"
+            style={{ color: 'var(--color-text-muted)' }}>← Dashboard</Link>
+          <span className="font-bold">Portfolio</span>
+          <div className="ml-auto flex items-center gap-2">
+            {entries.length > 0 && (
+              <button onClick={exportCsv} disabled={exportLoading}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-opacity hover:opacity-80 disabled:opacity-50"
+                style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-muted)' }}>
+                <Download size={13} />
+                {exportLoading ? 'Exporting…' : 'Export CSV'}
+              </button>
+            )}
+            <Link href="/compare"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-opacity hover:opacity-80"
+              style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-muted)' }}>
+              <BarChart2 size={13} /> Compare
+            </Link>
+            <button onClick={() => setShowForm(v => !v)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-opacity hover:opacity-80"
+              style={{ background: 'var(--color-primary)', color: '#fff' }}>
+              <Plus size={13} /> Add
+            </button>
+          </div>
         </div>
       </header>
 
-      <main className="max-w-3xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6 space-y-4">
 
-        {/* Summary KPIs */}
-        {rows.length > 0 && (
-          <div className="grid grid-cols-3 gap-3">
+        {/* Add form */}
+        {showForm && (
+          <div className="rounded-xl border p-4 space-y-3"
+            style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}>
+            <h2 className="font-semibold text-sm">Add Position</h2>
+            <div className="flex flex-wrap gap-3 items-end">
+              <div>
+                <label className="block text-xs mb-1" style={{ color: 'var(--color-text-muted)' }}>Coin</label>
+                <select value={coinId} onChange={e => setCoinId(e.target.value)}
+                  className="px-3 py-2 rounded-lg border text-sm"
+                  style={{ background: 'var(--color-surface-2)', borderColor: 'var(--color-border)', color: 'var(--color-text)' }}>
+                  {COINS.map(c => <option key={c.id} value={c.id}>{c.name} ({c.symbol})</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs mb-1" style={{ color: 'var(--color-text-muted)' }}>Amount</label>
+                <input type="number" min="0" step="any" placeholder="0.5"
+                  value={amount} onChange={e => setAmount(e.target.value)}
+                  className="px-3 py-2 rounded-lg border text-sm w-32 tabular-nums"
+                  style={{ background: 'var(--color-surface-2)', borderColor: 'var(--color-border)', color: 'var(--color-text)' }}
+                />
+              </div>
+              <div>
+                <label className="block text-xs mb-1" style={{ color: 'var(--color-text-muted)' }}>Buy price (USD)</label>
+                <input type="number" min="0" step="any" placeholder="42000"
+                  value={buyPrice} onChange={e => setBuyPrice(e.target.value)}
+                  className="px-3 py-2 rounded-lg border text-sm w-36 tabular-nums"
+                  style={{ background: 'var(--color-surface-2)', borderColor: 'var(--color-border)', color: 'var(--color-text)' }}
+                />
+              </div>
+              <button onClick={handleAdd}
+                className="px-4 py-2 rounded-lg text-sm font-medium transition-opacity hover:opacity-80"
+                style={{ background: 'var(--color-primary)', color: '#fff' }}>
+                Save
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Totals */}
+        {entries.length > 0 && (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
-              { label: 'Cost Basis',    val: fmtPrice(totalCost) },
-              { label: 'Current Value', val: fmtPrice(totalValue) },
+              { label: 'Total Cost',  val: fmtLarge(totalCost) },
+              { label: 'Total Value', val: fmtLarge(totalValue) },
               {
                 label: 'Total P&L',
-                val:   `${totalPnlUsd >= 0 ? '+' : ''}${fmtPrice(totalPnlUsd)} (${fmtPct(totalPnlPct)})`,
-                color: totalPnlUsd >= 0 ? 'var(--success)' : 'var(--error)',
+                val: `${totalPnl >= 0 ? '+' : ''}${fmtLarge(totalPnl)}`,
+                color: totalPnl >= 0 ? 'var(--color-success)' : 'var(--color-error)',
               },
-            ].map(k => (
-              <div key={k.label} className="rounded-xl p-4 border" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
-                <p className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>{k.label}</p>
-                <p className="font-bold text-sm num" style={k.color ? { color: k.color } : {}}>{k.val}</p>
+              {
+                label: 'P&L %',
+                val: fmtPct(totalPnlPct),
+                color: totalPnlPct >= 0 ? 'var(--color-success)' : 'var(--color-error)',
+              },
+            ].map(({ label, val, color }) => (
+              <div key={label} className="rounded-xl border p-3"
+                style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}>
+                <p className="text-xs mb-1" style={{ color: 'var(--color-text-muted)' }}>{label}</p>
+                <p className="font-semibold text-sm tabular-nums" style={color ? { color } : {}}>{val}</p>
               </div>
             ))}
           </div>
         )}
 
-        {/* Add position form */}
-        <div className="rounded-xl border p-4 space-y-3" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
-          <h2 className="font-semibold text-sm flex items-center gap-2">
-            <Plus size={14} style={{ color: 'var(--primary)' }} /> Add Position
-          </h2>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {[
-              { label: 'Coin ID',     val: coinId,   set: setCoinId,   ph: 'bitcoin',  type: 'text'   },
-              { label: 'Name',        val: coinName, set: setCoinName, ph: 'Bitcoin',   type: 'text'   },
-              { label: 'Amount',      val: amount,   set: setAmount,   ph: '0.5',       type: 'number' },
-              { label: 'Buy Price $', val: buyPrice, set: setBuyPrice, ph: '65000',     type: 'number' },
-            ].map(f => (
-              <div key={f.label}>
-                <label className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>{f.label}</label>
-                <input
-                  type={f.type} value={f.val} onChange={e => f.set(e.target.value)}
-                  placeholder={f.ph}
-                  min={f.type === 'number' ? '0' : undefined}
-                  step={f.type === 'number' ? 'any' : undefined}
-                  className="w-full px-3 py-2 rounded-lg border text-sm num"
-                  style={{ background: 'var(--surface-2)', borderColor: 'var(--border)', color: 'var(--text)' }}
-                />
-              </div>
-            ))}
+        {/* Table */}
+        {entries.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 gap-3"
+            style={{ color: 'var(--color-text-muted)' }}>
+            <TrendingUp size={36} style={{ color: 'var(--color-text-faint)' }} />
+            <p className="font-medium">No positions yet</p>
+            <p className="text-xs">Click <strong>+ Add</strong> to track your first coin</p>
           </div>
-          {error && <p className="text-xs" style={{ color: 'var(--error)' }}>{error}</p>}
-          <button
-            onClick={handleAdd}
-            className="px-4 py-2 rounded-lg text-sm font-medium transition-opacity hover:opacity-80"
-            style={{ background: 'var(--primary)', color: '#fff' }}
-          >
-            Add Position
-          </button>
-        </div>
-
-        {/* Positions table */}
-        {rows.length === 0
-          ? <EmptyState variant="portfolio" />
-          : (
-            <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border)' }}>
-              <div
-                className="grid grid-cols-[1fr_4rem_4rem_8rem_5rem_5rem_2rem] gap-2 px-4 py-2.5 text-xs font-medium border-b"
-                style={{ background: 'var(--surface-2)', borderColor: 'var(--border)', color: 'var(--text-muted)' }}
-              >
-                <span>Coin</span>
-                <span className="text-right">Qty</span>
-                <span className="text-right">Buy $</span>
-                <span className="text-right">Live $</span>
-                <span className="text-right">Value</span>
-                <span className="text-right">P&L</span>
-                <span />
-              </div>
-
-              {rows.map(r => {
-                const wsKey    = toWsSymbol(r.coinId)
-                const wsSymbol = wsKey
-                return (
-                  <div
-                    key={r.id}
-                    className="grid grid-cols-[1fr_4rem_4rem_8rem_5rem_5rem_2rem] gap-2 px-4 py-3 border-b last:border-0 items-center text-sm"
-                    style={{ borderColor: 'var(--border)' }}
-                  >
-                    <div>
-                      <p className="font-medium">{r.coinName}</p>
-                      <p className="text-xs uppercase" style={{ color: 'var(--text-muted)' }}>{r.coinId}</p>
-                    </div>
-
-                    <span className="text-right num text-xs">{r.amount}</span>
-                    <span className="text-right num text-xs">{fmtPrice(r.buyPrice)}</span>
-
-                    {/* 🔴 Live price cell — WS badge (no %change in table, saves space) */}
-                    <div className="flex justify-end">
-                      <LivePriceBadge symbol={wsSymbol} showChange={false} className="text-xs" />
-                    </div>
-
-                    <span className="text-right num text-xs font-medium">{fmtPrice(r.currentValue)}</span>
-
-                    <span
-                      className="text-right num text-xs font-semibold flex items-center justify-end gap-0.5"
-                      style={{ color: r.pnlPct >= 0 ? 'var(--success)' : 'var(--error)' }}
-                    >
-                      {r.pnlPct >= 0 ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
-                      {fmtPct(r.pnlPct)}
-                    </span>
-
-                    <button
-                      onClick={() => removeEntry(r.id)}
-                      className="flex justify-center p-1 rounded hover:opacity-60 transition-opacity"
-                      style={{ color: 'var(--text-faint)' }}
-                      aria-label="Remove"
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
-                )
-              })}
+        ) : (
+          <div className="rounded-xl border overflow-hidden"
+            style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
+                    {['Coin', 'Amount', 'Buy Price', 'Current', 'Cost Basis', 'Value', 'P&L', 'P&L %', ''].map(h => (
+                      <th key={h} className="px-4 py-2.5 text-left font-medium text-xs"
+                        style={{ color: 'var(--color-text-muted)' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map(r => (
+                    <tr key={r.id} className="border-t transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+                      style={{ borderColor: 'var(--color-divider)' }}>
+                      <td className="px-4 py-2.5 font-medium">{r.coinName}</td>
+                      <td className="px-4 py-2.5 tabular-nums">{r.amount}</td>
+                      <td className="px-4 py-2.5 tabular-nums">{fmtPrice(r.buyPrice)}</td>
+                      <td className="px-4 py-2.5 tabular-nums">
+                        {pricesLoading ? '…' : fmtPrice(r.cur)}
+                      </td>
+                      <td className="px-4 py-2.5 tabular-nums">{fmtLarge(r.cost)}</td>
+                      <td className="px-4 py-2.5 tabular-nums">{pricesLoading ? '…' : fmtLarge(r.value)}</td>
+                      <td className="px-4 py-2.5 tabular-nums font-medium"
+                        style={{ color: r.pnl >= 0 ? 'var(--color-success)' : 'var(--color-error)' }}>
+                        {pricesLoading ? '…' : `${r.pnl >= 0 ? '+' : ''}${fmtLarge(r.pnl)}`}
+                      </td>
+                      <td className="px-4 py-2.5 tabular-nums"
+                        style={{ color: r.pnlPct >= 0 ? 'var(--color-success)' : 'var(--color-error)' }}>
+                        {pricesLoading ? '…' : (
+                          <span className="flex items-center gap-1">
+                            {r.pnlPct >= 0 ? <TrendingUp size={12}/> : <TrendingDown size={12}/>}
+                            {fmtPct(r.pnlPct)}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <button onClick={() => removeEntry(r.id)}
+                          className="p-1 rounded hover:opacity-60 transition-opacity"
+                          style={{ color: 'var(--color-text-faint)' }} aria-label="Remove">
+                          <Trash2 size={13} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          )
-        }
+          </div>
+        )}
       </main>
     </div>
   )
