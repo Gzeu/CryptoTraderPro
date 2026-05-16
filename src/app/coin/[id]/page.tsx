@@ -7,6 +7,7 @@ import { useQuery } from '@tanstack/react-query'
 import { fetchCoinDetail, fetchOHLC } from '@/lib/api/coingecko'
 import { CandlestickChart } from '@/components/charts/CandlestickChart'
 import { BacktestPanel } from '@/components/dashboard/BacktestPanel'
+import { CoinNewsFeed } from '@/components/news/CoinNewsFeed'
 import { useTheme } from '@/hooks/useTheme'
 import { useWatchlistStore } from '@/store/watchlistStore'
 import { useAlertStore } from '@/store/alertStore'
@@ -16,25 +17,30 @@ import { fmtPrice, fmtLarge, fmtPct, fmtDate } from '@/lib/formatters'
 import { Skeleton } from '@/components/ui/Skeleton'
 import type { KlineInterval } from '@/hooks/useKlineStream'
 
+// ---- CoinGecko id → Binance symbol + ticker ----
+const COIN_META: Record<string, { binance: string; symbol: string }> = {
+  bitcoin:        { binance: 'BTC',  symbol: 'BTC'  },
+  ethereum:       { binance: 'ETH',  symbol: 'ETH'  },
+  'elrond-erd-2': { binance: 'EGLD', symbol: 'EGLD' },
+  solana:         { binance: 'SOL',  symbol: 'SOL'  },
+  binancecoin:    { binance: 'BNB',  symbol: 'BNB'  },
+  cardano:        { binance: 'ADA',  symbol: 'ADA'  },
+  ripple:         { binance: 'XRP',  symbol: 'XRP'  },
+  dogecoin:       { binance: 'DOGE', symbol: 'DOGE' },
+  polkadot:       { binance: 'DOT',  symbol: 'DOT'  },
+  litecoin:       { binance: 'LTC',  symbol: 'LTC'  },
+  'avalanche-2':  { binance: 'AVAX', symbol: 'AVAX' },
+  chainlink:      { binance: 'LINK', symbol: 'LINK' },
+  uniswap:        { binance: 'UNI',  symbol: 'UNI'  },
+  stellar:        { binance: 'XLM',  symbol: 'XLM'  },
+  cosmos:         { binance: 'ATOM', symbol: 'ATOM' },
+}
+
 function toBinanceBase(coinId: string): string {
-  const map: Record<string, string> = {
-    bitcoin:        'BTC',
-    ethereum:       'ETH',
-    'elrond-erd-2': 'EGLD',
-    solana:         'SOL',
-    binancecoin:    'BNB',
-    cardano:        'ADA',
-    ripple:         'XRP',
-    dogecoin:       'DOGE',
-    polkadot:       'DOT',
-    litecoin:       'LTC',
-    'avalanche-2':  'AVAX',
-    chainlink:      'LINK',
-    uniswap:        'UNI',
-    stellar:        'XLM',
-    cosmos:         'ATOM',
-  }
-  return map[coinId.toLowerCase()] ?? coinId.toUpperCase()
+  return COIN_META[coinId.toLowerCase()]?.binance ?? coinId.toUpperCase()
+}
+function toTickerSymbol(coinId: string, fallback: string): string {
+  return COIN_META[coinId.toLowerCase()]?.symbol ?? fallback.toUpperCase()
 }
 
 type Range = '1' | '7' | '14' | '30' | '90' | '365'
@@ -55,7 +61,7 @@ export default function CoinDetailPage() {
   const { ids: watchlist, toggle: toggleWatchlist } = useWatchlistStore()
   const { addAlert } = useAlertStore()
 
-  const [range,        setRange]        = useState(RANGES[3])   // default 1M
+  const [range,        setRange]        = useState(RANGES[3])
   const [alertPrice,   setAlertPrice]   = useState('')
   const [alertDir,     setAlertDir]     = useState<'above'|'below'>('above')
   const [alertSaved,   setAlertSaved]   = useState(false)
@@ -73,8 +79,9 @@ export default function CoinDetailPage() {
     staleTime: 60_000,
   })
 
-  const binanceBase = toBinanceBase(id)
-  const wsSymbol    = `${binanceBase}USDT`
+  const binanceBase  = toBinanceBase(id)
+  const wsSymbol     = `${binanceBase}USDT`
+  const tickerSymbol = toTickerSymbol(id, coin?.symbol ?? id)
 
   const { price: livePrice, priceChangePercent: livePct, isLive } = useLivePrice(wsSymbol)
   const { candles, isLive: klineIsLive } = useKlineStream(ohlc, wsSymbol, range.interval, !ohlcLoading)
@@ -160,7 +167,7 @@ export default function CoinDetailPage() {
           }
         </div>
 
-        {/* Stats */}
+        {/* Stats grid */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
             { label: 'Market Cap',  val: fmtLarge(coin?.market_data?.market_cap?.usd ?? 0) },
@@ -180,7 +187,7 @@ export default function CoinDetailPage() {
           ))}
         </div>
 
-        {/* OHLC Chart — live kline */}
+        {/* OHLC Chart */}
         <div className="rounded-xl border overflow-hidden"
           style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}>
           <div className="flex items-center justify-between px-4 pt-4 pb-2">
@@ -188,8 +195,8 @@ export default function CoinDetailPage() {
               <h2 className="font-semibold text-sm">OHLC Candlestick</h2>
               {klineIsLive && (
                 <span className="flex items-center gap-1 text-xs" style={{ color: 'var(--color-success)' }}>
-                  <span className="w-1.5 h-1.5 rounded-full animate-pulse"
-                    style={{ background: 'var(--color-success)', display: 'inline-block' }} />
+                  <span className="w-1.5 h-1.5 rounded-full animate-pulse inline-block"
+                    style={{ background: 'var(--color-success)' }} />
                   live
                 </span>
               )}
@@ -214,17 +221,14 @@ export default function CoinDetailPage() {
           </div>
         </div>
 
-        {/* Backtest toggle */}
+        {/* Backtest */}
         <button onClick={() => setShowBacktest(v => !v)}
           className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border text-sm font-medium transition-opacity hover:opacity-80"
           style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)', color: 'var(--color-text-muted)' }}>
           <Activity size={14} style={{ color: 'var(--color-primary)' }} />
           {showBacktest ? 'Hide Backtest' : 'Run Backtest'}
         </button>
-
-        {showBacktest && coin && (
-          <BacktestPanel coinId={id} coinName={coin.name} />
-        )}
+        {showBacktest && coin && <BacktestPanel coinId={id} coinName={coin.name} />}
 
         {/* Price Alert */}
         <div className="rounded-xl border p-4"
@@ -264,6 +268,9 @@ export default function CoinDetailPage() {
             </p>
           )}
         </div>
+
+        {/* News Feed */}
+        <CoinNewsFeed symbol={tickerSymbol} limit={8} />
 
         {/* Description */}
         {coin?.description?.en && (

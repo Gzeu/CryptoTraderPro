@@ -2,9 +2,11 @@
 
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Trash2, Plus, Download, TrendingUp, TrendingDown, BarChart2 } from 'lucide-react'
+import { Trash2, Plus, Download, TrendingUp, TrendingDown, BarChart2, PieChart } from 'lucide-react'
 import { usePortfolioStore } from '@/store/portfolioStore'
 import { usePortfolioExport } from '@/hooks/usePortfolioExport'
+import { PortfolioPieChart, type PieSlice } from '@/components/charts/PortfolioPieChart'
+import { useTheme } from '@/hooks/useTheme'
 import { fmtPrice, fmtLarge, fmtPct } from '@/lib/formatters'
 import { Skeleton } from '@/components/ui/Skeleton'
 import Link from 'next/link'
@@ -24,28 +26,32 @@ const COINS = [
   { id: 'litecoin',      name: 'Litecoin',   symbol: 'LTC'  },
 ]
 
+type ViewMode = 'table' | 'chart'
+
 export default function PortfolioPage() {
+  const { theme } = useTheme()
+  const isDark = theme === 'dark'
   const { entries, addEntry, removeEntry } = usePortfolioStore()
   const { exportCsv, loading: exportLoading } = usePortfolioExport()
 
-  const [coinId,    setCoinId]    = useState(COINS[0].id)
-  const [amount,    setAmount]    = useState('')
-  const [buyPrice,  setBuyPrice]  = useState('')
-  const [showForm,  setShowForm]  = useState(false)
+  const [coinId,   setCoinId]   = useState(COINS[0].id)
+  const [amount,   setAmount]   = useState('')
+  const [buyPrice, setBuyPrice] = useState('')
+  const [showForm, setShowForm] = useState(false)
+  const [view,     setView]     = useState<ViewMode>('table')
 
-  // Fetch live prices for all held coins
   const heldIds = [...new Set(entries.map(e => e.coinId))]
   const { data: prices, isLoading: pricesLoading } = useQuery({
     queryKey: ['portfolio-prices', heldIds.join(',')],
     queryFn: async () => {
-      if (heldIds.length === 0) return {}
-      const res = await fetch(
+      if (heldIds.length === 0) return {} as Record<string, number>
+      const res  = await fetch(
         `https://api.coingecko.com/api/v3/simple/price?ids=${heldIds.join(',')}&vs_currencies=usd`,
       )
       const data = await res.json() as Record<string, { usd: number }>
       return Object.fromEntries(Object.entries(data).map(([k, v]) => [k, v.usd]))
     },
-    enabled:   heldIds.length > 0,
+    enabled: heldIds.length > 0,
     staleTime: 30_000,
     refetchInterval: 30_000,
   })
@@ -59,7 +65,6 @@ export default function PortfolioPage() {
     setAmount(''); setBuyPrice(''); setShowForm(false)
   }
 
-  // Computed totals
   const rows = entries.map(e => {
     const cur    = prices?.[e.coinId] ?? 0
     const cost   = e.amount * e.buyPrice
@@ -68,10 +73,24 @@ export default function PortfolioPage() {
     const pnlPct = cost > 0 ? (pnl / cost) * 100 : 0
     return { ...e, cur, cost, value, pnl, pnlPct }
   })
-  const totalCost  = rows.reduce((s, r) => s + r.cost,  0)
-  const totalValue = rows.reduce((s, r) => s + r.value, 0)
-  const totalPnl   = totalValue - totalCost
+
+  const totalCost   = rows.reduce((s, r) => s + r.cost,  0)
+  const totalValue  = rows.reduce((s, r) => s + r.value, 0)
+  const totalPnl    = totalValue - totalCost
   const totalPnlPct = totalCost > 0 ? (totalPnl / totalCost) * 100 : 0
+
+  // Pie chart data — aggregate by coin, use current value
+  const pieData: PieSlice[] = Object.entries(
+    rows.reduce<Record<string, { name: string; value: number }>>((acc, r) => {
+      if (!acc[r.coinId]) acc[r.coinId] = { name: r.coinName, value: 0 }
+      acc[r.coinId].value += r.value
+      return acc
+    }, {})
+  ).map(([, { name, value }]) => ({
+    name,
+    value,
+    pct: totalValue > 0 ? (value / totalValue) * 100 : 0,
+  })).sort((a, b) => b.value - a.value)
 
   return (
     <div className="min-h-screen" style={{ background: 'var(--color-bg)', color: 'var(--color-text)' }}>
@@ -85,12 +104,27 @@ export default function PortfolioPage() {
           <span className="font-bold">Portfolio</span>
           <div className="ml-auto flex items-center gap-2">
             {entries.length > 0 && (
-              <button onClick={exportCsv} disabled={exportLoading}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-opacity hover:opacity-80 disabled:opacity-50"
-                style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-muted)' }}>
-                <Download size={13} />
-                {exportLoading ? 'Exporting…' : 'Export CSV'}
-              </button>
+              <>
+                {/* View toggle */}
+                <div className="flex gap-0.5 rounded-lg p-0.5" style={{ background: 'var(--color-surface-2)' }}>
+                  {(['table', 'chart'] as ViewMode[]).map(v => (
+                    <button key={v} onClick={() => setView(v)}
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-all"
+                      style={view === v
+                        ? { background: 'var(--color-surface)', color: 'var(--color-text)', boxShadow: 'var(--shadow-sm)' }
+                        : { color: 'var(--color-text-muted)' }}>
+                      {v === 'table' ? <BarChart2 size={12}/> : <PieChart size={12}/>}
+                      {v === 'table' ? 'Table' : 'Chart'}
+                    </button>
+                  ))}
+                </div>
+                <button onClick={exportCsv} disabled={exportLoading}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-opacity hover:opacity-80 disabled:opacity-50"
+                  style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-muted)' }}>
+                  <Download size={13} />
+                  {exportLoading ? 'Exporting…' : 'Export CSV'}
+                </button>
+              </>
             )}
             <Link href="/compare"
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-opacity hover:opacity-80"
@@ -153,16 +187,10 @@ export default function PortfolioPage() {
             {[
               { label: 'Total Cost',  val: fmtLarge(totalCost) },
               { label: 'Total Value', val: fmtLarge(totalValue) },
-              {
-                label: 'Total P&L',
-                val: `${totalPnl >= 0 ? '+' : ''}${fmtLarge(totalPnl)}`,
-                color: totalPnl >= 0 ? 'var(--color-success)' : 'var(--color-error)',
-              },
-              {
-                label: 'P&L %',
-                val: fmtPct(totalPnlPct),
-                color: totalPnlPct >= 0 ? 'var(--color-success)' : 'var(--color-error)',
-              },
+              { label: 'Total P&L',   val: `${totalPnl >= 0 ? '+' : ''}${fmtLarge(totalPnl)}`,
+                color: totalPnl >= 0 ? 'var(--color-success)' : 'var(--color-error)' },
+              { label: 'P&L %',       val: fmtPct(totalPnlPct),
+                color: totalPnlPct >= 0 ? 'var(--color-success)' : 'var(--color-error)' },
             ].map(({ label, val, color }) => (
               <div key={label} className="rounded-xl border p-3"
                 style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}>
@@ -173,7 +201,7 @@ export default function PortfolioPage() {
           </div>
         )}
 
-        {/* Table */}
+        {/* Empty state */}
         {entries.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3"
             style={{ color: 'var(--color-text-muted)' }}>
@@ -181,7 +209,18 @@ export default function PortfolioPage() {
             <p className="font-medium">No positions yet</p>
             <p className="text-xs">Click <strong>+ Add</strong> to track your first coin</p>
           </div>
+        ) : view === 'chart' ? (
+          /* Pie chart view */
+          <div className="rounded-xl border p-4"
+            style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}>
+            <h2 className="font-semibold text-sm mb-4">Allocation by Current Value</h2>
+            {pricesLoading
+              ? <Skeleton style={{ height: 300, borderRadius: 8 }} />
+              : <PortfolioPieChart data={pieData} isDark={isDark} height={300} />
+            }
+          </div>
         ) : (
+          /* Table view */
           <div className="rounded-xl border overflow-hidden"
             style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}>
             <div className="overflow-x-auto">
@@ -201,9 +240,7 @@ export default function PortfolioPage() {
                       <td className="px-4 py-2.5 font-medium">{r.coinName}</td>
                       <td className="px-4 py-2.5 tabular-nums">{r.amount}</td>
                       <td className="px-4 py-2.5 tabular-nums">{fmtPrice(r.buyPrice)}</td>
-                      <td className="px-4 py-2.5 tabular-nums">
-                        {pricesLoading ? '…' : fmtPrice(r.cur)}
-                      </td>
+                      <td className="px-4 py-2.5 tabular-nums">{pricesLoading ? '…' : fmtPrice(r.cur)}</td>
                       <td className="px-4 py-2.5 tabular-nums">{fmtLarge(r.cost)}</td>
                       <td className="px-4 py-2.5 tabular-nums">{pricesLoading ? '…' : fmtLarge(r.value)}</td>
                       <td className="px-4 py-2.5 tabular-nums font-medium"
