@@ -1,6 +1,6 @@
 {
   "name": "cryptotraderpro",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -9,14 +9,12 @@
     "lint": "next lint",
     "lint:fix": "next lint --fix",
     "type-check": "tsc --noEmit",
-    "test": "vitest",
-    "test:watch": "vitest --watch",
-    "test:coverage": "vitest --coverage",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "format": "prettier --write \"src/**/*.{js,jsx,ts,tsx,json,css,md}\"",
     "format:check": "prettier --check \"src/**/*.{js,jsx,ts,tsx,json,css,md}\"",
-    "clean": "rm -rf .next out dist",
-    "analyze": "ANALYZE=true npm run build",
-    "export": "next export"
+    "clean": "rm -rf .next out dist"
   },
   "dependencies": {
     "next": "15.0.2",
@@ -60,20 +58,5 @@
     "@testing-library/user-event": "^14.5.2",
     "vitest": "^2.1.1"
   },
-  "engines": {
-    "node": ">=18.17.0",
-    "npm": ">=8.0.0"
-  },
-  "browserslist": {
-    "production": [
-      ">0.2%",
-      "not dead",
-      "not op_mini all"
-    ],
-    "development": [
-      "last 1 chrome version",
-      "last 1 firefox version",
-      "last 1 safari version"
-    ]
-  }
+  "engines": { "node": ">=18.17.0", "npm": ">=8.0.0" }
 }
