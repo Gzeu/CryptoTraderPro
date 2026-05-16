@@ -1,31 +1,34 @@
 /** @type {import('next').NextConfig} */
+
+// GitHub Pages deploys to https://gzeu.github.io/CryptoTraderPro/
+// Remove basePath if you add a custom domain (CNAME)
+const isProd = process.env.NODE_ENV === 'production'
+const repoName = 'CryptoTraderPro'
+
 const nextConfig = {
-  experimental: {
-    appDir: true,
-  },
+  // --- Required for GitHub Pages (static HTML export) ---
+  output: 'export',
+  basePath: isProd ? `/${repoName}` : '',
+  assetPrefix: isProd ? `/${repoName}/` : '',
+  trailingSlash: true,
+
+  // Images must be unoptimized in static export (no server)
   images: {
-    domains: [
-      'assets.coingecko.com',
-      'coin-images.coingecko.com',
-      'static.coinpaprika.com',
-      'cryptologos.cc'
+    unoptimized: true,
+    remotePatterns: [
+      { protocol: 'https', hostname: 'assets.coingecko.com' },
+      { protocol: 'https', hostname: 'coin-images.coingecko.com' },
+      { protocol: 'https', hostname: 'static.coinpaprika.com' },
+      { protocol: 'https', hostname: 'cryptologos.cc' },
     ],
   },
+
   env: {
     CUSTOM_KEY: process.env.CUSTOM_KEY,
   },
-  async headers() {
-    return [
-      {
-        source: '/api/:path*',
-        headers: [
-          { key: 'Access-Control-Allow-Origin', value: '*' },
-          { key: 'Access-Control-Allow-Methods', value: 'GET,OPTIONS,PATCH,DELETE,POST,PUT' },
-          { key: 'Access-Control-Allow-Headers', value: 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version' },
-        ],
-      },
-    ]
-  },
+
+  // NOTE: headers() is ignored in static export
+  // API routes are not supported in static export
 }
 
 module.exports = nextConfig
