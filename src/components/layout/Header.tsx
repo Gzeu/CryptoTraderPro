@@ -1,93 +1,58 @@
 'use client'
 
-import React, { useState } from 'react'
-import { useTheme } from 'next-themes'
-import {
-  SunIcon,
-  MoonIcon,
-  SearchIcon,
-  BellIcon,
-  SettingsIcon,
-  UserIcon,
-  MenuIcon,
-  TrendingUpIcon
-} from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { LiveTicker } from './LiveTicker'
-import { cn } from '@/lib/utils'
+import { RefreshCw, Moon, Sun, Search } from 'lucide-react'
 
-interface HeaderProps {
-  onMenuToggle?: () => void
-  className?: string
+interface Props {
+  search: string
+  onSearch: (v: string) => void
+  theme: 'dark' | 'light'
+  onToggleTheme: () => void
+  onRefresh: () => void
+  lastUpdate: Date | null
 }
 
-export function Header({ onMenuToggle, className }: HeaderProps) {
-  const { theme, setTheme } = useTheme()
-  const toggleTheme = () => setTheme(theme === 'dark' ? 'light' : 'dark')
-
+export function Header({ search, onSearch, theme, onToggleTheme, onRefresh, lastUpdate }: Props) {
   return (
-    <header className={cn('sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur-sm', className)}>
-      <div className="container mx-auto px-4">
-        <div className="flex h-14 items-center justify-between">
-          {/* Logo */}
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" className="md:hidden" onClick={onMenuToggle}>
-              <MenuIcon className="h-5 w-5" />
-            </Button>
-            <div className="flex items-center gap-2">
-              {/* SVG Logo */}
-              <svg width="32" height="32" viewBox="0 0 32 32" fill="none" aria-label="CryptoTraderPro logo">
-                <rect width="32" height="32" rx="8" fill="hsl(221 83% 53%)" />
-                <polyline points="4,22 10,14 16,18 22,8 28,12" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-                <circle cx="28" cy="12" r="2" fill="white" />
-              </svg>
-              <div className="hidden sm:block">
-                <span className="font-bold text-base leading-tight tracking-tight">CryptoTraderPro</span>
-                <p className="text-[10px] text-muted-foreground leading-none">Advanced Trading Dashboard</p>
-              </div>
-            </div>
-          </div>
+    <header className="sticky top-0 z-40 border-b" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
 
-          {/* Search */}
-          <div className="hidden md:flex flex-1 max-w-sm mx-6">
-            <div className="relative w-full">
-              <SearchIcon className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-              <input
-                type="text"
-                placeholder="Search cryptocurrencies..."
-                className="w-full rounded-lg border bg-secondary/40 pl-9 pr-4 py-1.5 text-sm placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
-              />
-            </div>
-          </div>
+        {/* Logo */}
+        <div className="flex items-center gap-2 shrink-0">
+          <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-label="CryptoTraderPro logo">
+            <rect width="28" height="28" rx="7" fill="var(--primary)" />
+            <path d="M6 14h4l2.5-5.5 3.5 11 2.5-7.5 2 2h3" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          <span className="font-bold text-sm tracking-tight hidden sm:block">CryptoTraderPro</span>
+        </div>
 
-          {/* Right actions */}
-          <div className="flex items-center gap-1">
-            <Button variant="ghost" size="icon" className="md:hidden">
-              <SearchIcon className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="icon" onClick={toggleTheme} title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}>
-              {theme === 'dark' ? <SunIcon className="h-4 w-4" /> : <MoonIcon className="h-4 w-4" />}
-            </Button>
-            <Button variant="ghost" size="icon">
-              <div className="relative">
-                <BellIcon className="h-4 w-4" />
-                <span className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full bg-[hsl(var(--bearish))] animate-pulse" />
-              </div>
-            </Button>
-            <Button variant="ghost" size="icon"><SettingsIcon className="h-4 w-4" /></Button>
-            <Button variant="ghost" size="icon">
-              <div className="h-7 w-7 rounded-full bg-primary/20 flex items-center justify-center">
-                <UserIcon className="h-3.5 w-3.5 text-primary" />
-              </div>
-            </Button>
-          </div>
+        {/* Search */}
+        <div className="relative flex-1 max-w-xs">
+          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--text-muted)' }} />
+          <input
+            type="search"
+            placeholder="Search coins…"
+            value={search}
+            onChange={e => onSearch(e.target.value)}
+            className="w-full pl-8 pr-3 py-1.5 text-sm rounded-lg border"
+            style={{ background: 'var(--surface-2)', borderColor: 'var(--border)', color: 'var(--text)' }}
+          />
+        </div>
+
+        {/* Controls */}
+        <div className="flex items-center gap-1">
+          {lastUpdate && (
+            <span className="text-xs num hidden md:block mr-1" style={{ color: 'var(--text-faint)' }}>
+              {lastUpdate.toLocaleTimeString()}
+            </span>
+          )}
+          <button onClick={onRefresh} title="Refresh" className="p-2 rounded-lg hover:opacity-70 transition-opacity" style={{ color: 'var(--text-muted)' }}>
+            <RefreshCw size={15} />
+          </button>
+          <button onClick={onToggleTheme} title="Toggle theme" className="p-2 rounded-lg hover:opacity-70 transition-opacity" style={{ color: 'var(--text-muted)' }}>
+            {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
+          </button>
         </div>
       </div>
-
-      {/* Live Ticker */}
-      <LiveTicker />
     </header>
   )
 }
-
-export default Header
