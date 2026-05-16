@@ -1,31 +1,33 @@
 /**
  * usePortfolioLivePrices
  * ───────────────────────
- * Combines the portfolio store with real-time Binance WS prices.
- * Falls back to CoinGecko REST prices when WS is not yet connected
- * or the coin has no Binance pair.
+ * Combines the portfolio store with real-time Binance WS prices via
+ * the priceFeed singleton (useLivePrices).
  *
- * Returns enriched rows ready for table + pie chart rendering.
+ * Strategy:
+ *   1. Subscribe all held coins to Binance WS via useLivePrices
+ *   2. Fall back to CoinGecko REST prices (passed in as restPrices)
+ *   3. Expose isLive per row + aggregated totals
  */
 
 import { useMemo } from 'react'
-import { useMultiTickerWS } from './useMultiTickerWS'
+import { useLivePrices } from './useLivePrice'
 import { usePortfolioStore } from '@/store/portfolioStore'
 
-// CoinGecko id → Binance base symbol mapping
+// CoinGecko id → Binance USDT symbol
 const CG_TO_BINANCE: Record<string, string> = {
-  bitcoin:        'BTC',
-  ethereum:       'ETH',
-  'elrond-erd-2': 'EGLD',
-  solana:         'SOL',
-  binancecoin:    'BNB',
-  cardano:        'ADA',
-  ripple:         'XRP',
-  dogecoin:       'DOGE',
-  polkadot:       'DOT',
-  'avalanche-2':  'AVAX',
-  chainlink:      'LINK',
-  litecoin:       'LTC',
+  bitcoin:        'BTCUSDT',
+  ethereum:       'ETHUSDT',
+  'elrond-erd-2': 'EGLDUSDT',
+  solana:         'SOLUSDT',
+  binancecoin:    'BNBUSDT',
+  cardano:        'ADAUSDT',
+  ripple:         'XRPUSDT',
+  dogecoin:       'DOGEUSDT',
+  polkadot:       'DOTUSDT',
+  'avalanche-2':  'AVAXUSDT',
+  chainlink:      'LINKUSDT',
+  litecoin:       'LTCUSDT',
 }
 
 export interface PortfolioRow {
@@ -44,30 +46,28 @@ export interface PortfolioRow {
 
 export function usePortfolioLivePrices(
   restPrices?: Record<string, number>,
-  pricesLoading = false,
+  restLoading = false,
 ) {
   const { entries } = usePortfolioStore()
 
-  // Build list of Binance symbols to subscribe to
+  // Collect Binance symbols for all held coins
   const wsSymbols = useMemo(() => {
-    const ids = [...new Set(entries.map((e) => e.coinId))]
+    const ids = [...new Set(entries.map(e => e.coinId))]
     return ids
-      .filter((id) => CG_TO_BINANCE[id])
-      .map((id) => `${CG_TO_BINANCE[id]}USDT`)
+      .filter(id => CG_TO_BINANCE[id])
+      .map(id => CG_TO_BINANCE[id])
   }, [entries])
 
-  const tickers = useMultiTickerWS(wsSymbols)
+  // Single shared WS connection via priceFeed singleton
+  const { priceMap } = useLivePrices(wsSymbols)
 
   const rows = useMemo<PortfolioRow[]>(() => {
-    return entries.map((e) => {
-      const binanceSymbol = CG_TO_BINANCE[e.coinId]
-        ? `${CG_TO_BINANCE[e.coinId]}USDT`
-        : null
-
-      const wsPrice   = binanceSymbol ? tickers.get(binanceSymbol)?.price : undefined
+    return entries.map(e => {
+      const wsSymbol  = CG_TO_BINANCE[e.coinId]
+      const wsPrice   = wsSymbol ? priceMap.get(wsSymbol)?.price : undefined
       const restPrice = restPrices?.[e.coinId]
       const cur       = wsPrice ?? restPrice ?? 0
-      const isLive    = wsPrice !== undefined
+      const isLive    = wsPrice !== undefined && wsPrice > 0
 
       const cost   = e.amount * e.buyPrice
       const value  = e.amount * cur
@@ -88,13 +88,13 @@ export function usePortfolioLivePrices(
         isLive,
       }
     })
-  }, [entries, tickers, restPrices])
+  }, [entries, priceMap, restPrices])
 
-  const totalCost  = rows.reduce((s, r) => s + r.cost,  0)
-  const totalValue = rows.reduce((s, r) => s + r.value, 0)
-  const totalPnl   = totalValue - totalCost
+  const totalCost   = rows.reduce((s, r) => s + r.cost,  0)
+  const totalValue  = rows.reduce((s, r) => s + r.value, 0)
+  const totalPnl    = totalValue - totalCost
   const totalPnlPct = totalCost > 0 ? (totalPnl / totalCost) * 100 : 0
-  const anyLive    = rows.some((r) => r.isLive)
+  const anyLive     = rows.some(r => r.isLive)
 
-  return { rows, totalCost, totalValue, totalPnl, totalPnlPct, anyLive, pricesLoading }
+  return { rows, totalCost, totalValue, totalPnl, totalPnlPct, anyLive, restLoading }
 }
