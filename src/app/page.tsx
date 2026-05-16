@@ -1,211 +1,370 @@
 'use client'
 
-import React, { useState, useEffect, Suspense } from 'react'
-import {
-  TrendingUpIcon, TrendingDownIcon, DollarSignIcon,
-  BarChart3Icon, RefreshCwIcon, AlertCircleIcon, EyeIcon
-} from 'lucide-react'
-import TradingViewChart from '@/components/charts/TradingViewChart'
-import WatchlistTable from '@/components/dashboard/WatchlistTable'
-import { SkeletonDashboard } from '@/components/ui/SkeletonDashboard'
-import { usePriceData } from '@/hooks/usePriceData'
-import { useSettingsStore } from '@/store/settingsStore'
-import { getGlobalMarketData, formatNumber } from '@/lib/api/coinGecko'
-import { cn, formatTimeAgo } from '@/lib/utils'
-import type { MarketOverview, CandlestickData } from '@/types/crypto'
+import { useState, useEffect, useCallback } from 'react'
+import { TrendingUp, TrendingDown, RefreshCw, Star, BarChart2, Wallet, Search, Moon, Sun } from 'lucide-react'
 
-function Stat({ title, value, change, icon: Icon }: { title: string; value: string; change?: number; icon: any }) {
+// ─── Types ────────────────────────────────────────────────────────────────────
+interface Coin {
+  id: string
+  symbol: string
+  name: string
+  current_price: number
+  price_change_percentage_24h: number
+  market_cap: number
+  total_volume: number
+  image: string
+  sparkline_in_7d?: { price: number[] }
+}
+
+const WATCHLIST_DEFAULT = [
+  'bitcoin', 'ethereum', 'elrond-erd-2', 'binancecoin',
+  'solana', 'cardano', 'polkadot', 'avalanche-2',
+]
+
+const TICKER_COINS = [
+  { id: 'bitcoin', sym: 'BTC' }, { id: 'ethereum', sym: 'ETH' },
+  { id: 'elrond-erd-2', sym: 'EGLD' }, { id: 'binancecoin', sym: 'BNB' },
+  { id: 'solana', sym: 'SOL' }, { id: 'cardano', sym: 'ADA' },
+  { id: 'polkadot', sym: 'DOT' }, { id: 'avalanche-2', sym: 'AVAX' },
+]
+
+function fmt(n: number): string {
+  if (n >= 1e9) return `$${(n / 1e9).toFixed(2)}B`
+  if (n >= 1e6) return `$${(n / 1e6).toFixed(2)}M`
+  if (n < 0.01)  return `$${n.toFixed(6)}`
+  return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+function SparklineBar({ prices }: { prices: number[] }) {
+  if (!prices?.length) return <div className="h-8 w-16 skeleton rounded" />
+  const min = Math.min(...prices)
+  const max = Math.max(...prices)
+  const norm = prices.map(p => max === min ? 0.5 : (p - min) / (max - min))
+  const last = prices[prices.length - 1]
+  const first = prices[0]
+  const up = last >= first
   return (
-    <div className="card card-hover card-press glass compact-card">
-      <div className="flex items-center justify-between">
-        <div className="space-y-0.5">
-          <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">{title}</p>
-          <p className="text-xl font-semibold tracking-tight tabular-nums">{value}</p>
-        </div>
-        <div className="rounded-lg bg-primary/10 p-2 text-primary">
-          <Icon className="h-4 w-4" />
-        </div>
-      </div>
-      {change !== undefined && (
-        <div className={cn(
-          'mt-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium',
-          change >= 0 ? 'badge badge-green' : 'badge badge-red'
-        )}>
-          {change >= 0 ? <TrendingUpIcon className="h-3 w-3" /> : <TrendingDownIcon className="h-3 w-3" />}
-          {`${change >= 0 ? '+' : ''}${Math.abs(change).toFixed(2)}%`}
-        </div>
-      )}
-    </div>
+    <svg width="64" height="32" viewBox="0 0 64 32" className="overflow-visible">
+      <polyline
+        points={norm.map((v, i) => `${(i / (norm.length - 1)) * 64},${32 - v * 28}`).join(' ')}
+        fill="none"
+        stroke={up ? 'var(--green)' : 'var(--red)'}
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   )
 }
 
-function DashboardContent() {
-  const { coins, loading, error, lastUpdated, refresh, getChartData } = usePriceData({ refreshInterval: 30000, limit: 100 })
-  const { watchlist, addToWatchlist, removeFromWatchlist } = useSettingsStore()
+function PctBadge({ pct }: { pct: number }) {
+  const up = pct >= 0
+  return (
+    <span className={`inline-flex items-center gap-0.5 text-xs font-medium num px-1.5 py-0.5 rounded-full ${
+      up ? 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950' : 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950'
+    }`}>
+      {up ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
+      {up ? '+' : ''}{pct.toFixed(2)}%
+    </span>
+  )
+}
 
-  const [marketData, setMarketData] = useState<MarketOverview | null>(null)
-  const [selectedCoin, setSelectedCoin] = useState<any>(null)
-  const [chartData, setChartData] = useState<CandlestickData[]>([])
-  const [refreshing, setRefreshing] = useState(false)
-  const [chartLoading, setChartLoading] = useState(false)
+// ─── Main Page ────────────────────────────────────────────────────────────────
+export default function DashboardPage() {
+  const [coins, setCoins] = useState<Coin[]>([])
+  const [ticker, setTicker] = useState<Coin[]>([])
+  const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
+  const [tab, setTab] = useState<'market' | 'watchlist'>('market')
+  const [watchlist, setWatchlist] = useState<string[]>(WATCHLIST_DEFAULT)
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark')
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
 
+  // Theme toggle
   useEffect(() => {
-    const fetchMarketData = async () => { try { setMarketData(await getGlobalMarketData()) } catch {} }
-    fetchMarketData()
-    const id = setInterval(fetchMarketData, 60000)
-    return () => clearInterval(id)
+    const stored = typeof window !== 'undefined' ? localStorage.getItem('ctp-theme') : null
+    const sys = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+    const t = (stored as 'dark' | 'light') || sys
+    setTheme(t)
+    document.documentElement.setAttribute('data-theme', t)
   }, [])
 
-  useEffect(() => {
-    if (coins.length > 0 && !selectedCoin) {
-      // Default to EGLD if available, otherwise BTC
-      setSelectedCoin(
-        coins.find(c => c.id === 'elrond-erd-2') ||
-        coins.find(c => c.id === 'bitcoin') ||
-        coins[0]
-      )
-    }
-  }, [coins, selectedCoin])
-
-  useEffect(() => {
-    if (!selectedCoin) return
-    ;(async () => {
-      setChartLoading(true)
-      try { setChartData(await getChartData(selectedCoin.id, 7)) }
-      finally { setChartLoading(false) }
-    })()
-  }, [selectedCoin, getChartData])
-
-  const handleRefresh = async () => { setRefreshing(true); await refresh(); setRefreshing(false) }
-
-  if (loading && coins.length === 0) return <SkeletonDashboard />
-
-  if (error) {
-    return (
-      <div className="flex min-h-[320px] flex-col items-center justify-center gap-4">
-        <div className="rounded-full bg-destructive/10 p-4">
-          <AlertCircleIcon className="h-10 w-10 text-destructive" />
-        </div>
-        <div className="text-center space-y-1">
-          <h2 className="text-lg font-semibold">Failed to load market data</h2>
-          <p className="max-w-md text-center text-muted-foreground text-sm">{error}</p>
-        </div>
-        <button onClick={handleRefresh} className="btn btn-primary compact-btn">Try Again</button>
-      </div>
-    )
+  const toggleTheme = () => {
+    const next = theme === 'dark' ? 'light' : 'dark'
+    setTheme(next)
+    document.documentElement.setAttribute('data-theme', next)
+    localStorage.setItem('ctp-theme', next)
   }
 
-  return (
-    <div className="space-y-5 density-compact">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Market Overview</h1>
-          <p className="text-sm text-muted-foreground">Real-time cryptocurrency data · updates every 30s</p>
-        </div>
-        <div className="flex items-center gap-2">
-          {lastUpdated && (
-            <span className="hidden sm:block text-xs text-muted-foreground">Updated {formatTimeAgo(lastUpdated)}</span>
-          )}
-          <button
-            onClick={handleRefresh}
-            disabled={refreshing}
-            className={cn('btn btn-outline compact-btn', refreshing && 'opacity-60')}
-          >
-            <RefreshCwIcon className={cn('h-3.5 w-3.5', refreshing && 'animate-spin')} />
-            Refresh
-          </button>
-        </div>
-      </div>
+  // Fetch market data
+  const fetchCoins = useCallback(async () => {
+    try {
+      const res = await fetch(
+        'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=100&page=1&sparkline=true&price_change_percentage=24h',
+        { signal: AbortSignal.timeout(10000) }
+      )
+      if (!res.ok) throw new Error('CoinGecko rate limit')
+      const data: Coin[] = await res.json()
+      setCoins(data)
+      setTicker(data.filter(c => TICKER_COINS.some(t => t.id === c.id)))
+      setLastUpdate(new Date())
+    } catch (e) {
+      console.warn('CoinGecko fetch failed:', e)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
 
-      {/* Market stats */}
-      {marketData ? (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Stat title="Market Cap" value={formatNumber(marketData.totalMarketCap)} change={(marketData.marketCapChange24h / marketData.totalMarketCap) * 100} icon={DollarSignIcon} />
-          <Stat title="24h Volume" value={formatNumber(marketData.totalVolume24h)} icon={BarChart3Icon} />
-          <Stat title="BTC Dominance" value={`${marketData.bitcoinDominance.toFixed(1)}%`} icon={TrendingUpIcon} />
-          <Stat title="Active Coins" value={marketData.activeCoins.toLocaleString()} icon={EyeIcon} />
-        </div>
-      ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="card compact-card h-[90px] animate-pulse bg-secondary/40" />
+  useEffect(() => { fetchCoins() }, [fetchCoins])
+  useEffect(() => {
+    const id = setInterval(fetchCoins, 60_000)
+    return () => clearInterval(id)
+  }, [fetchCoins])
+
+  const toggleWatchlist = (id: string) =>
+    setWatchlist(w => w.includes(id) ? w.filter(x => x !== id) : [...w, id])
+
+  const filtered = coins
+    .filter(c => tab === 'watchlist' ? watchlist.includes(c.id) : true)
+    .filter(c =>
+      c.name.toLowerCase().includes(search.toLowerCase()) ||
+      c.symbol.toLowerCase().includes(search.toLowerCase())
+    )
+
+  // Ticker items
+  const tickerItems = TICKER_COINS.map(t => {
+    const coin = ticker.find(c => c.id === t.id)
+    return { ...t, price: coin?.current_price, pct: coin?.price_change_percentage_24h }
+  })
+
+  return (
+    <div className="min-h-screen" style={{ background: 'var(--bg)', color: 'var(--text)' }}>
+
+      {/* ── Live Ticker ── */}
+      <div className="ticker-wrap border-b py-2 text-xs" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
+        <div className="ticker-track">
+          {[...tickerItems, ...tickerItems].map((t, i) => (
+            <span key={i} className="inline-flex items-center gap-1.5 px-4">
+              <span className="font-semibold" style={{ color: 'var(--primary)' }}>{t.sym}</span>
+              <span className="num font-medium">{t.price ? fmt(t.price) : '—'}</span>
+              {t.pct != null && (
+                <span className={`num ${t.pct >= 0 ? '' : ''}` } style={{ color: t.pct >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                  {t.pct >= 0 ? '+' : ''}{t.pct.toFixed(2)}%
+                </span>
+              )}
+              <span style={{ color: 'var(--border)' }}>•</span>
+            </span>
           ))}
         </div>
-      )}
+      </div>
 
-      {/* Main content */}
-      <div className="grid gap-4 lg:grid-cols-3">
-        {/* Chart */}
-        <div className="lg:col-span-2">
-          <div className="glass card compact-card">
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <h2 className="text-base font-semibold">
-                  {selectedCoin ? `${selectedCoin.name} (${selectedCoin.symbol.toUpperCase()})` : 'Price Chart'}
-                </h2>
-                {selectedCoin && (
-                  <div className="mt-0.5 flex items-center gap-2">
-                    <span className="font-mono text-lg font-semibold tabular-nums">
-                      ${selectedCoin.current_price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </span>
-                    <span className={cn('badge text-xs', selectedCoin.price_change_percentage_24h >= 0 ? 'badge-green' : 'badge-red')}>
-                      {selectedCoin.price_change_percentage_24h >= 0 ? '+' : ''}
-                      {selectedCoin.price_change_percentage_24h.toFixed(2)}%
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-            <div className="relative">
-              {chartLoading && (
-                <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-background/70 backdrop-blur-sm">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                    Loading chart...
-                  </div>
-                </div>
-              )}
-              <TradingViewChart
-                data={chartData}
-                type="candlestick"
-                height={380}
-                symbol={selectedCoin?.symbol.toUpperCase()}
-                theme="dark"
-                enableVolume
-              />
-            </div>
+      {/* ── Header ── */}
+      <header className="sticky top-0 z-40 border-b" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
+          {/* Logo */}
+          <div className="flex items-center gap-2 shrink-0">
+            <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-label="CryptoTraderPro">
+              <rect width="28" height="28" rx="7" fill="var(--primary)" />
+              <path d="M8 14h3l2-5 3 10 2-7 2 2h3" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            <span className="font-bold text-sm tracking-tight hidden sm:block">CryptoTraderPro</span>
           </div>
-        </div>
 
-        {/* Watchlist */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-semibold">Top Cryptocurrencies</h2>
-            <span className="badge badge-muted">{coins.length}</span>
-          </div>
-          <div className="glass card compact-card overflow-auto max-h-[460px]">
-            <WatchlistTable
-              coins={coins.slice(0, 25)}
-              loading={loading}
-              onCoinSelect={setSelectedCoin}
-              onAddToWatchlist={(id) => { const coin = coins.find(c => c.id === id); if (coin) addToWatchlist(coin.id, coin.symbol, coin.name) }}
-              onRemoveFromWatchlist={removeFromWatchlist}
-              watchlistIds={watchlist.map(w => w.coinId)}
-              compact
-              className="compact-table"
+          {/* Search */}
+          <div className="relative flex-1 max-w-xs">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }} />
+            <input
+              type="search"
+              placeholder="Search coins…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="w-full pl-8 pr-3 py-1.5 text-sm rounded-lg border"
+              style={{ background: 'var(--surface-2)', borderColor: 'var(--border)', color: 'var(--text)' }}
             />
           </div>
-        </div>
-      </div>
-    </div>
-  )
-}
 
-export default function DashboardPage() {
-  return (
-    <Suspense fallback={<SkeletonDashboard />}>
-      <DashboardContent />
-    </Suspense>
+          {/* Controls */}
+          <div className="flex items-center gap-2">
+            {lastUpdate && (
+              <span className="text-xs hidden md:block num" style={{ color: 'var(--text-faint)' }}>
+                {lastUpdate.toLocaleTimeString()}
+              </span>
+            )}
+            <button
+              onClick={fetchCoins}
+              title="Refresh"
+              className="p-2 rounded-lg transition-colors"
+              style={{ color: 'var(--text-muted)' }}
+            >
+              <RefreshCw size={15} />
+            </button>
+            <button
+              onClick={toggleTheme}
+              title="Toggle theme"
+              className="p-2 rounded-lg transition-colors"
+              style={{ color: 'var(--text-muted)' }}
+            >
+              {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* ── Main ── */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+
+        {/* KPI Cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+          {loading
+            ? Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="skeleton h-20 rounded-xl" />
+              ))
+            : [
+                {
+                  label: 'Total Market Cap',
+                  icon: <BarChart2 size={16} />,
+                  value: coins[0]
+                    ? fmt(coins.reduce((s, c) => s + c.market_cap, 0))
+                    : '—',
+                },
+                {
+                  label: '24h Volume',
+                  icon: <TrendingUp size={16} />,
+                  value: coins[0]
+                    ? fmt(coins.reduce((s, c) => s + c.total_volume, 0))
+                    : '—',
+                },
+                {
+                  label: 'BTC Price',
+                  icon: <Wallet size={16} />,
+                  value: fmt(coins.find(c => c.id === 'bitcoin')?.current_price ?? 0),
+                },
+                {
+                  label: 'EGLD Price',
+                  icon: <Star size={16} />,
+                  value: fmt(coins.find(c => c.id === 'elrond-erd-2')?.current_price ?? 0),
+                },
+              ].map((kpi, i) => (
+                <div
+                  key={i}
+                  className="rounded-xl p-4 border fade-up"
+                  style={{ background: 'var(--surface)', borderColor: 'var(--border)', animationDelay: `${i * 60}ms` }}
+                >
+                  <div className="flex items-center gap-1.5 mb-1" style={{ color: 'var(--text-muted)' }}>
+                    {kpi.icon}
+                    <span className="text-xs">{kpi.label}</span>
+                  </div>
+                  <p className="font-bold text-lg num">{kpi.value}</p>
+                </div>
+              ))}
+        </div>
+
+        {/* Tabs */}
+        <div className="flex gap-1 mb-4 p-1 rounded-xl w-fit" style={{ background: 'var(--surface-2)' }}>
+          {(['market', 'watchlist'] as const).map(t => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className="px-4 py-1.5 rounded-lg text-sm font-medium capitalize transition-all"
+              style={tab === t
+                ? { background: 'var(--surface)', color: 'var(--text)', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }
+                : { color: 'var(--text-muted)' }
+              }
+            >
+              {t === 'watchlist' ? `⭐ Watchlist (${watchlist.length})` : '📊 Market'}
+            </button>
+          ))}
+        </div>
+
+        {/* Coin Table */}
+        <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border)' }}>
+          {/* Table Header */}
+          <div
+            className="grid grid-cols-[2rem_1fr_7rem_7rem_6rem_5rem_4rem] gap-3 px-4 py-3 text-xs font-medium border-b"
+            style={{ background: 'var(--surface-2)', color: 'var(--text-muted)', borderColor: 'var(--border)' }}
+          >
+            <span>#</span>
+            <span>Name</span>
+            <span className="text-right">Price</span>
+            <span className="text-right">24h %</span>
+            <span className="text-right hidden sm:block">Market Cap</span>
+            <span className="text-right hidden md:block">7d Chart</span>
+            <span className="text-center">★</span>
+          </div>
+
+          {/* Rows */}
+          {loading
+            ? Array.from({ length: 10 }).map((_, i) => (
+                <div key={i} className="grid grid-cols-[2rem_1fr_7rem_7rem_6rem_5rem_4rem] gap-3 px-4 py-3 border-b" style={{ borderColor: 'var(--border)' }}>
+                  <div className="skeleton h-4 w-5 rounded" />
+                  <div className="flex items-center gap-2">
+                    <div className="skeleton h-8 w-8 rounded-full" />
+                    <div className="skeleton h-4 w-24 rounded" />
+                  </div>
+                  <div className="skeleton h-4 w-20 rounded ml-auto" />
+                  <div className="skeleton h-4 w-16 rounded ml-auto" />
+                  <div className="skeleton h-4 w-20 rounded ml-auto hidden sm:block" />
+                  <div className="skeleton h-8 w-16 rounded ml-auto hidden md:block" />
+                  <div className="skeleton h-6 w-6 rounded mx-auto" />
+                </div>
+              ))
+            : filtered.length === 0
+              ? (
+                  <div className="py-16 text-center" style={{ color: 'var(--text-muted)' }}>
+                    <BarChart2 size={40} className="mx-auto mb-3 opacity-30" />
+                    <p className="font-medium">No coins found</p>
+                    <p className="text-sm mt-1">Try a different search or tab</p>
+                  </div>
+                )
+              : filtered.map((coin, i) => (
+                  <div
+                    key={coin.id}
+                    className="grid grid-cols-[2rem_1fr_7rem_7rem_6rem_5rem_4rem] gap-3 px-4 py-3 border-b items-center hover:opacity-80 transition-opacity fade-up"
+                    style={{ borderColor: 'var(--border)', animationDelay: `${Math.min(i * 30, 300)}ms` }}
+                  >
+                    <span className="text-xs num" style={{ color: 'var(--text-faint)' }}>{i + 1}</span>
+                    <div className="flex items-center gap-2 min-w-0">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={coin.image} alt={coin.name} width={28} height={28} className="rounded-full shrink-0" loading="lazy" />
+                      <div className="min-w-0">
+                        <p className="font-semibold text-sm truncate">{coin.name}</p>
+                        <p className="text-xs uppercase" style={{ color: 'var(--text-muted)' }}>{coin.symbol}</p>
+                      </div>
+                    </div>
+                    <p className="text-right text-sm font-medium num">{fmt(coin.current_price)}</p>
+                    <div className="flex justify-end">
+                      <PctBadge pct={coin.price_change_percentage_24h ?? 0} />
+                    </div>
+                    <p className="text-right text-xs num hidden sm:block" style={{ color: 'var(--text-muted)' }}>
+                      {fmt(coin.market_cap)}
+                    </p>
+                    <div className="hidden md:flex justify-end">
+                      <SparklineBar prices={coin.sparkline_in_7d?.price ?? []} />
+                    </div>
+                    <div className="flex justify-center">
+                      <button
+                        onClick={() => toggleWatchlist(coin.id)}
+                        className="p-1 rounded transition-colors"
+                        title={watchlist.includes(coin.id) ? 'Remove from watchlist' : 'Add to watchlist'}
+                        style={{ color: watchlist.includes(coin.id) ? 'var(--yellow)' : 'var(--text-faint)' }}
+                        aria-label={watchlist.includes(coin.id) ? 'Remove from watchlist' : 'Add to watchlist'}
+                      >
+                        <Star size={14} fill={watchlist.includes(coin.id) ? 'currentColor' : 'none'} />
+                      </button>
+                    </div>
+                  </div>
+                ))
+          }
+        </div>
+
+        {/* Footer */}
+        <p className="text-center text-xs mt-6" style={{ color: 'var(--text-faint)' }}>
+          Data by{' '}
+          <a href="https://www.coingecko.com" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)' }}>CoinGecko</a>
+          {' '}· Auto-refresh every 60s
+          {lastUpdate && ` · Last update: ${lastUpdate.toLocaleTimeString()}`}
+        </p>
+      </main>
+    </div>
   )
 }

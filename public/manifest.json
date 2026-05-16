@@ -1,17 +1,14 @@
 {
   "name": "CryptoTraderPro",
-  "short_name": "CryptoTrader",
-  "description": "Professional cryptocurrency trading dashboard with real-time charts and portfolio tracking.",
+  "short_name": "CTP",
+  "description": "Professional real-time cryptocurrency trading dashboard",
   "start_url": "/CryptoTraderPro/",
   "scope": "/CryptoTraderPro/",
   "display": "standalone",
-  "background_color": "#0a0f1a",
-  "theme_color": "#0a0f1a",
-  "orientation": "any",
-  "categories": ["finance", "productivity"],
+  "background_color": "#0f172a",
+  "theme_color": "#0d9488",
   "icons": [
-    { "src": "/CryptoTraderPro/favicon.svg", "type": "image/svg+xml", "sizes": "any", "purpose": "any maskable" },
-    { "src": "/CryptoTraderPro/icon-192.png", "type": "image/png", "sizes": "192x192" },
-    { "src": "/CryptoTraderPro/icon-512.png", "type": "image/png", "sizes": "512x512" }
-  ]
+    { "src": "/CryptoTraderPro/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ],
+  "categories": ["finance", "utilities"]
 }
