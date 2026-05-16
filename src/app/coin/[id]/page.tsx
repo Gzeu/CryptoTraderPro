@@ -269,8 +269,8 @@ export default function CoinDetailPage() {
           )}
         </div>
 
-        {/* News Feed */}
-        <CoinNewsFeed symbol={tickerSymbol} limit={8} />
+        {/* ── News Feed (CryptoPanic) ── */}
+        <CoinNewsFeed symbol={tickerSymbol} limit={10} />
 
         {/* Description */}
         {coin?.description?.en && (
