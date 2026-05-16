@@ -4,130 +4,108 @@
 // MultiversX Dashboard Page
 // =============================================================================
 
-import React, { useState } from 'react'
+import React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { MultiversXConnect } from '@/components/multiversx/MultiversXConnect'
 import { EgldPriceCard } from '@/components/multiversx/EgldPriceCard'
-import { fetchEgldEconomics, fetchEgldPriceHistory } from '@/lib/multiversx'
-import { useMultiversXStore } from '@/store/multiversxStore'
-import { formatCurrency } from '@/lib/utils'
+import { fetchEgldPriceHistory } from '@/lib/multiversx'
+import { useMultiversxStore } from '@/store/multiversxStore'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
+import { useState } from 'react'
+import Link from 'next/link'
+import { CoinsIcon } from 'lucide-react'
 
-type TimeTab = '7' | '30' | '90'
+const PERIODS = [{ label: '7D', days: 7 }, { label: '30D', days: 30 }, { label: '90D', days: 90 }]
 
 export default function MultiversXPage() {
-  const [activeTab, setActiveTab] = useState<TimeTab>('30')
-  const { address, walletInfo, egldPrice } = useMultiversXStore()
+  const { address, balance } = useMultiversxStore()
+  const [period, setPeriod] = useState(7)
 
-  const { data: economics } = useQuery({
-    queryKey: ['egld-economics'],
-    queryFn: fetchEgldEconomics,
-    staleTime: 60_000,
+  const { data: history, isLoading } = useQuery({
+    queryKey: ['egld-history', period],
+    queryFn: () => fetchEgldPriceHistory(period),
+    staleTime: 5 * 60 * 1000,
   })
-
-  const { data: priceHistory = [] } = useQuery({
-    queryKey: ['egld-price-history', activeTab],
-    queryFn: () => fetchEgldPriceHistory(parseInt(activeTab)),
-    staleTime: 5 * 60_000,
-  })
-
-  const tabs: { label: string; value: TimeTab }[] = [
-    { label: '7D', value: '7' },
-    { label: '30D', value: '30' },
-    { label: '90D', value: '90' },
-  ]
 
   return (
-    <div className="container mx-auto px-4 py-6 max-w-5xl">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">MultiversX</h1>
-        <p className="text-muted-foreground text-sm">EGLD price, wallet overview & staking</p>
+    <div className="container mx-auto px-4 py-6 max-w-4xl space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">MultiversX</h1>
+          <p className="text-muted-foreground text-sm">EGLD price, wallet balance and staking.</p>
+        </div>
+        <Link
+          href="/multiversx/staking"
+          className="flex items-center gap-2 text-sm text-primary hover:underline font-medium"
+        >
+          <CoinsIcon className="h-4 w-4" />
+          Staking Dashboard
+        </Link>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="md:col-span-1">
-          <MultiversXConnect />
-        </div>
+      <MultiversXConnect />
+      <EgldPriceCard />
 
-        <div className="md:col-span-2">
-          <EgldPriceCard priceHistory={priceHistory} />
-        </div>
-      </div>
-
-      {/* Economics Stats */}
-      {economics && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          {[
-            { label: 'Market Cap', value: formatCurrency(economics.marketCap) },
-            { label: 'Circulating', value: `${(economics.circulatingSupply / 1e6).toFixed(2)}M EGLD` },
-            { label: 'Staked', value: `${(economics.staked / 1e6).toFixed(2)}M EGLD` },
-            { label: 'Staking APR', value: `${economics.apr?.toFixed(2) ?? '—'}%` },
-          ].map(({ label, value }) => (
-            <Card key={label}>
-              <CardContent className="p-4">
-                <p className="text-xs text-muted-foreground">{label}</p>
-                <p className="text-lg font-semibold font-mono">{value}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
-
-      {/* Price History Chart Tabs */}
+      {/* Price History */}
       <Card>
-        <CardHeader>
+        <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <CardTitle className="text-base">EGLD Price History</CardTitle>
             <div className="flex gap-1">
-              {tabs.map((t) => (
-                <Button
-                  key={t.value}
-                  size="sm"
-                  variant={activeTab === t.value ? 'default' : 'ghost'}
-                  onClick={() => setActiveTab(t.value)}
-                  className="h-7 px-3 text-xs"
+              {PERIODS.map(({ label, days }) => (
+                <button
+                  key={days}
+                  onClick={() => setPeriod(days)}
+                  className={cn(
+                    'px-2.5 py-1 text-xs rounded-md font-medium transition-colors',
+                    period === days
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                  )}
                 >
-                  {t.label}
-                </Button>
+                  {label}
+                </button>
               ))}
             </div>
           </div>
         </CardHeader>
         <CardContent>
-          <div className="h-[240px] flex items-center justify-center text-muted-foreground text-sm">
-            {priceHistory.length > 0
-              ? `${priceHistory.length} data points loaded — chart rendered in EgldPriceCard`
-              : 'Loading price history...'}
-          </div>
+          {isLoading ? (
+            <div className="h-40 rounded-lg bg-muted animate-pulse" />
+          ) : history && history.length > 0 ? (
+            <div className="h-40 flex items-end gap-px">
+              {history.slice(-60).map((point, i) => {
+                const min = Math.min(...history.map((p) => p.price))
+                const max = Math.max(...history.map((p) => p.price))
+                const pct = max > min ? ((point.price - min) / (max - min)) * 100 : 50
+                return (
+                  <div
+                    key={i}
+                    className="flex-1 bg-primary/60 rounded-t-sm transition-all"
+                    style={{ height: `${Math.max(4, pct)}%` }}
+                    title={`$${point.price.toFixed(2)}`}
+                  />
+                )
+              })}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground text-center py-8">No data available.</p>
+          )}
         </CardContent>
       </Card>
 
-      {/* Wallet Summary */}
-      {address && walletInfo && egldPrice > 0 && (
-        <Card className="mt-4">
-          <CardHeader>
-            <CardTitle className="text-base">Portfolio Value</CardTitle>
+      {/* Wallet Balance */}
+      {address && balance !== null && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Wallet Balance</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-3xl font-bold font-mono">
-                  {formatCurrency(walletInfo.balance * egldPrice)}
-                </p>
-                <p className="text-muted-foreground text-sm">
-                  {walletInfo.balance.toFixed(6)} EGLD @ {formatCurrency(egldPrice)}
-                </p>
-              </div>
-              <a
-                href={`https://explorer.multiversx.com/accounts/${address}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-primary underline"
-              >
-                View on Explorer →
-              </a>
-            </div>
+            <p className="text-xs text-muted-foreground font-mono mb-1">{address}</p>
+            <p className="text-2xl font-mono font-bold">
+              {new Intl.NumberFormat('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 4 }).format(balance)} EGLD
+            </p>
           </CardContent>
         </Card>
       )}
