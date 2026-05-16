@@ -1,34 +1,7 @@
-/**
- * usePortfolioLivePrices
- * ───────────────────────
- * Combines the portfolio store with real-time Binance WS prices via
- * the priceFeed singleton (useLivePrices).
- *
- * Strategy:
- *   1. Subscribe all held coins to Binance WS via useLivePrices
- *   2. Fall back to CoinGecko REST prices (passed in as restPrices)
- *   3. Expose isLive per row + aggregated totals
- */
-
 import { useMemo } from 'react'
-import { useLivePrices } from './useLivePrice'
 import { usePortfolioStore } from '@/store/portfolioStore'
-
-// CoinGecko id → Binance USDT symbol
-const CG_TO_BINANCE: Record<string, string> = {
-  bitcoin:        'BTCUSDT',
-  ethereum:       'ETHUSDT',
-  'elrond-erd-2': 'EGLDUSDT',
-  solana:         'SOLUSDT',
-  binancecoin:    'BNBUSDT',
-  cardano:        'ADAUSDT',
-  ripple:         'XRPUSDT',
-  dogecoin:       'DOGEUSDT',
-  polkadot:       'DOTUSDT',
-  'avalanche-2':  'AVAXUSDT',
-  chainlink:      'LINKUSDT',
-  litecoin:       'LTCUSDT',
-}
+import { useLivePrices } from '@/hooks/useLivePrice'
+import { CG_TO_BINANCE } from '@/lib/cgToBinance'
 
 export interface PortfolioRow {
   id: string
@@ -36,65 +9,82 @@ export interface PortfolioRow {
   coinName: string
   amount: number
   buyPrice: number
-  currentPrice: number
-  cost: number
-  value: number
-  pnl: number
-  pnlPct: number
+  currentPrice: number | null
+  costBasis: number
+  currentValue: number | null
+  pnl: number | null
+  pnlPct: number | null
+  /** 24h price change percent from Binance WS */
+  pct24h: number | null
   isLive: boolean
+  binanceSymbol: string | null
+}
+
+export interface PortfolioSummary {
+  rows: PortfolioRow[]
+  totalCost: number
+  totalValue: number | null
+  totalPnl: number | null
+  totalPnlPct: number | null
+  anyLive: boolean
 }
 
 export function usePortfolioLivePrices(
   restPrices?: Record<string, number>,
-  restLoading = false,
-) {
-  const { entries } = usePortfolioStore()
+  restLoading?: boolean
+): PortfolioSummary {
+  const entries = usePortfolioStore(s => s.entries)
 
-  // Collect Binance symbols for all held coins
-  const wsSymbols = useMemo(() => {
-    const ids = [...new Set(entries.map(e => e.coinId))]
-    return ids
-      .filter(id => CG_TO_BINANCE[id])
-      .map(id => CG_TO_BINANCE[id])
-  }, [entries])
+  const symbols = useMemo(
+    () => entries.map(e => CG_TO_BINANCE[e.coinId]).filter((s): s is string => !!s),
+    [entries]
+  )
 
-  // Single shared WS connection via priceFeed singleton
-  const { priceMap } = useLivePrices(wsSymbols)
+  const { priceMap, isLive } = useLivePrices(symbols)
 
-  const rows = useMemo<PortfolioRow[]>(() => {
-    return entries.map(e => {
-      const wsSymbol  = CG_TO_BINANCE[e.coinId]
-      const wsPrice   = wsSymbol ? priceMap.get(wsSymbol)?.price : undefined
-      const restPrice = restPrices?.[e.coinId]
-      const cur       = wsPrice ?? restPrice ?? 0
-      const isLive    = wsPrice !== undefined && wsPrice > 0
+  const rows: PortfolioRow[] = useMemo(() =>
+    entries.map(entry => {
+      const symbol = CG_TO_BINANCE[entry.coinId] ?? null
+      const ticker = symbol ? priceMap.get(symbol) : undefined
 
-      const cost   = e.amount * e.buyPrice
-      const value  = e.amount * cur
-      const pnl    = value - cost
-      const pnlPct = cost > 0 ? (pnl / cost) * 100 : 0
+      const currentPrice =
+        ticker?.price ??
+        restPrices?.[entry.coinId] ??
+        null
+
+      // 24h% comes directly from Binance WS miniTicker stream
+      const pct24h = ticker?.priceChangePercent ?? null
+
+      const costBasis = entry.amount * entry.buyPrice
+      const currentValue = currentPrice != null ? entry.amount * currentPrice : null
+      const pnl = currentValue != null ? currentValue - costBasis : null
+      const pnlPct = pnl != null && costBasis > 0 ? (pnl / costBasis) * 100 : null
 
       return {
-        id:           e.id,
-        coinId:       e.coinId,
-        coinName:     e.coinName,
-        amount:       e.amount,
-        buyPrice:     e.buyPrice,
-        currentPrice: cur,
-        cost,
-        value,
+        id: entry.id,
+        coinId: entry.coinId,
+        coinName: entry.coinName,
+        amount: entry.amount,
+        buyPrice: entry.buyPrice,
+        currentPrice,
+        costBasis,
+        currentValue,
         pnl,
         pnlPct,
-        isLive,
+        pct24h,
+        isLive: !!ticker?.price,
+        binanceSymbol: symbol,
       }
-    })
-  }, [entries, priceMap, restPrices])
+    }),
+    [entries, priceMap, restPrices]
+  )
 
-  const totalCost   = rows.reduce((s, r) => s + r.cost,  0)
-  const totalValue  = rows.reduce((s, r) => s + r.value, 0)
-  const totalPnl    = totalValue - totalCost
-  const totalPnlPct = totalCost > 0 ? (totalPnl / totalCost) * 100 : 0
-  const anyLive     = rows.some(r => r.isLive)
+  const totalCost = rows.reduce((s, r) => s + r.costBasis, 0)
+  const totalValue = rows.every(r => r.currentValue != null)
+    ? rows.reduce((s, r) => s + (r.currentValue ?? 0), 0)
+    : null
+  const totalPnl = totalValue != null ? totalValue - totalCost : null
+  const totalPnlPct = totalPnl != null && totalCost > 0 ? (totalPnl / totalCost) * 100 : null
 
-  return { rows, totalCost, totalValue, totalPnl, totalPnlPct, anyLive, restLoading }
+  return { rows, totalCost, totalValue, totalPnl, totalPnlPct, anyLive: isLive }
 }
