@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, Star, Bell, TrendingUp, TrendingDown, ExternalLink } from 'lucide-react'
-import Link from 'next/link'
+import { ArrowLeft, Star, Bell, TrendingUp, TrendingDown, ExternalLink, Activity } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
-import { fetchCoinDetail, fetchOHLC, type OHLCBar } from '@/lib/api/coingecko'
+import { fetchCoinDetail, fetchOHLC } from '@/lib/api/coingecko'
 import { CandlestickChart } from '@/components/charts/CandlestickChart'
+import { BacktestPanel } from '@/components/dashboard/BacktestPanel'
 import { useTheme } from '@/hooks/useTheme'
 import { useWatchlistStore } from '@/store/watchlistStore'
 import { useAlertStore } from '@/store/alertStore'
@@ -31,20 +31,21 @@ export default function CoinDetailPage() {
   const { ids: watchlist, toggle: toggleWatchlist } = useWatchlistStore()
   const { addAlert } = useAlertStore()
 
-  const [range, setRange] = useState<Range>('7')
+  const [range,      setRange]      = useState<Range>('30')
   const [alertPrice, setAlertPrice] = useState('')
-  const [alertDir, setAlertDir] = useState<'above' | 'below'>('above')
+  const [alertDir,   setAlertDir]   = useState<'above' | 'below'>('above')
   const [alertSaved, setAlertSaved] = useState(false)
+  const [showBacktest, setShowBacktest] = useState(false)
 
   const { data: coin, isLoading: coinLoading } = useQuery({
     queryKey: ['coin', id],
-    queryFn: () => fetchCoinDetail(id),
+    queryFn:  () => fetchCoinDetail(id),
     staleTime: 60_000,
   })
 
   const { data: ohlc = [], isLoading: ohlcLoading } = useQuery({
     queryKey: ['ohlc', id, range],
-    queryFn: () => fetchOHLC(id, range),
+    queryFn:  () => fetchOHLC(id, range),
     staleTime: 60_000,
   })
 
@@ -63,22 +64,18 @@ export default function CoinDetailPage() {
 
   return (
     <div className="min-h-screen" style={{ background: 'var(--bg)', color: 'var(--text)' }}>
-
-      {/* Nav */}
       <header className="sticky top-0 z-40 border-b" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
         <div className="max-w-5xl mx-auto px-4 sm:px-6 h-14 flex items-center gap-3">
           <button onClick={() => router.back()} className="p-1.5 rounded-lg hover:opacity-70 transition-opacity" aria-label="Back">
             <ArrowLeft size={18} />
           </button>
           {coinLoading
-            ? <div className="skeleton skeleton-text w-32 h-5" />
+            ? <div className="h-5 w-32 rounded" style={{ background: 'var(--surface-2)' }} />
             : <>
                 {coin?.image?.small && <img src={coin.image.small} alt={coin.name} width={24} height={24} loading="lazy" className="rounded-full" />}
                 <span className="font-bold">{coin?.name}</span>
                 <span className="text-sm uppercase" style={{ color: 'var(--text-muted)' }}>{coin?.symbol}</span>
-                <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: 'var(--surface-2)', color: 'var(--text-muted)' }}>
-                  #{coin?.market_cap_rank}
-                </span>
+                <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: 'var(--surface-2)', color: 'var(--text-muted)' }}>#{coin?.market_cap_rank}</span>
               </>
           }
           <div className="ml-auto flex items-center gap-1">
@@ -114,17 +111,17 @@ export default function CoinDetailPage() {
           }
         </div>
 
-        {/* Stats grid */}
+        {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: 'Market Cap',    val: fmtLarge(coin?.market_data?.market_cap?.usd ?? 0) },
-            { label: '24h Volume',    val: fmtLarge(coin?.market_data?.total_volume?.usd ?? 0) },
-            { label: 'ATH',           val: fmtPrice(coin?.market_data?.ath?.usd ?? 0) },
-            { label: 'ATH Date',      val: coin?.market_data?.ath_date?.usd ? fmtDate(new Date(coin.market_data.ath_date.usd)) : '—' },
-            { label: 'Circulating',   val: fmtLarge(coin?.market_data?.circulating_supply ?? 0, false) },
-            { label: 'Max Supply',    val: coin?.market_data?.max_supply ? fmtLarge(coin.market_data.max_supply, false) : '∞' },
-            { label: '7d Change',     val: fmtPct(coin?.market_data?.price_change_percentage_7d ?? 0) },
-            { label: '30d Change',    val: fmtPct(coin?.market_data?.price_change_percentage_30d ?? 0) },
+            { label: 'Market Cap',   val: fmtLarge(coin?.market_data?.market_cap?.usd ?? 0) },
+            { label: '24h Volume',   val: fmtLarge(coin?.market_data?.total_volume?.usd ?? 0) },
+            { label: 'ATH',          val: fmtPrice(coin?.market_data?.ath?.usd ?? 0) },
+            { label: 'ATH Date',     val: coin?.market_data?.ath_date?.usd ? fmtDate(new Date(coin.market_data.ath_date.usd)) : '—' },
+            { label: 'Circulating',  val: fmtLarge(coin?.market_data?.circulating_supply ?? 0, false) },
+            { label: 'Max Supply',   val: coin?.market_data?.max_supply ? fmtLarge(coin.market_data.max_supply, false) : '∞' },
+            { label: '7d Change',    val: fmtPct(coin?.market_data?.price_change_percentage_7d ?? 0) },
+            { label: '30d Change',   val: fmtPct(coin?.market_data?.price_change_percentage_30d ?? 0) },
           ].map(({ label, val }) => (
             <div key={label} className="rounded-xl p-3 border" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
               <p className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>{label}</p>
@@ -141,7 +138,7 @@ export default function CoinDetailPage() {
               {RANGES.map(r => (
                 <button key={r.value} onClick={() => setRange(r.value)}
                   className="px-2.5 py-1 rounded-lg text-xs font-medium transition-all"
-                  style={range===r.value
+                  style={range === r.value
                     ? { background: 'var(--primary)', color: '#fff' }
                     : { color: 'var(--text-muted)', background: 'var(--surface-2)' }}>
                   {r.label}
@@ -156,6 +153,19 @@ export default function CoinDetailPage() {
             }
           </div>
         </div>
+
+        {/* Backtest toggle */}
+        <button
+          onClick={() => setShowBacktest(v => !v)}
+          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border text-sm font-medium transition-opacity hover:opacity-80"
+          style={{ background: 'var(--surface)', borderColor: 'var(--border)', color: 'var(--text-muted)' }}>
+          <Activity size={14} style={{ color: 'var(--primary)' }} />
+          {showBacktest ? 'Hide Backtest' : 'Run Backtest'}
+        </button>
+
+        {showBacktest && coin && (
+          <BacktestPanel coinId={id} coinName={coin.name} />
+        )}
 
         {/* Price Alert */}
         <div className="rounded-xl border p-4" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
@@ -186,11 +196,6 @@ export default function CoinDetailPage() {
               {alertSaved ? '✓ Saved!' : 'Set Alert'}
             </button>
           </div>
-          {alertSaved && (
-            <p className="text-xs mt-2" style={{ color: 'var(--primary)' }}>
-              Alert set! You\'ll be notified via browser notification when price is triggered.
-            </p>
-          )}
         </div>
 
         {/* Description */}
