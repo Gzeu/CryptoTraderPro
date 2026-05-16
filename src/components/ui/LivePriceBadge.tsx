@@ -1,16 +1,16 @@
 'use client'
 
 // =============================================================================
-// LivePriceBadge — shows a real-time price with a green pulse dot
-// Drop-in anywhere you need a live price display
+// LivePriceBadge — real-time price via Binance WS feed
+// Green pulse dot = live | grey dot = connecting
 // =============================================================================
 
 import { useLivePrice } from '@/hooks/useLivePrice'
 
 interface Props {
-  symbol:    string  // e.g. 'BTCUSDT'
-  className?: string
-  showChange?: boolean
+  symbol:      string   // e.g. 'BTCUSDT'
+  className?:  string
+  showChange?: boolean  // show 24h % change from WS ticker (default true)
 }
 
 export function LivePriceBadge({ symbol, className = '', showChange = true }: Props) {
@@ -21,13 +21,12 @@ export function LivePriceBadge({ symbol, className = '', showChange = true }: Pr
       ? n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
       : n.toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 6 })
 
-  const pct  = priceChangePercent ?? 0
-  const pos  = pct >= 0
-  const col  = pos ? 'var(--success)' : 'var(--error)'
+  const pct = priceChangePercent ?? 0
+  const pos = pct >= 0
 
   return (
-    <span className={`inline-flex items-center gap-1.5 font-mono text-sm num ${className}`}>
-      {/* live indicator */}
+    <span className={`inline-flex items-center gap-1.5 font-mono num ${className}`}>
+      {/* live indicator dot */}
       <span
         className={`w-1.5 h-1.5 rounded-full shrink-0 ${isLive ? 'animate-pulse' : 'opacity-30'}`}
         style={{ background: isLive ? 'var(--success)' : 'var(--text-faint)' }}
@@ -37,7 +36,7 @@ export function LivePriceBadge({ symbol, className = '', showChange = true }: Pr
         <>
           <span style={{ color: 'var(--text)' }}>${fmt(price)}</span>
           {showChange && (
-            <span style={{ color: col }}>
+            <span style={{ color: pos ? 'var(--success)' : 'var(--error)' }}>
               {pos ? '+' : ''}{pct.toFixed(2)}%
             </span>
           )}
