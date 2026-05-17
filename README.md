@@ -2,18 +2,19 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-0.8.0-01696f?style=flat-square)
+![Version](https://img.shields.io/badge/version-0.11.0-01696f?style=flat-square)
 ![Next.js](https://img.shields.io/badge/Next.js-14-000?style=flat-square&logo=nextdotjs)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.6-3178C6?style=flat-square&logo=typescript)
 ![TailwindCSS](https://img.shields.io/badge/Tailwind-3-06B6D4?style=flat-square&logo=tailwindcss)
 ![Recharts](https://img.shields.io/badge/Recharts-2-22c55e?style=flat-square)
+![MultiversX](https://img.shields.io/badge/MultiversX-EGLD-23F7DD?style=flat-square&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PGNpcmNsZSBjeD0iMTYiIGN5PSIxNiIgcj0iMTYiIGZpbGw9IiMyM0Y3REQiLz48L3N2Zz4=)
 ![License](https://img.shields.io/badge/license-MIT-f59e0b?style=flat-square)
 [![Deploy](https://github.com/Gzeu/CryptoTraderPro/actions/workflows/deploy.yml/badge.svg)](https://github.com/Gzeu/CryptoTraderPro/actions)
 
 **Professional cryptocurrency trading dashboard.**  
-Real-time WebSocket prices · Portfolio P&L · Price Alerts · MultiversX/EGLD native support · Binance WS singleton · CryptoPanic news feed.
+Real-time WebSocket prices · Portfolio P&L · Price Alerts · Backtest · Compare · MultiversX/EGLD native · Address Inspector · CryptoPanic news · Binance WS singleton.
 
-[🔗 Live Demo](https://gzeu.github.io/CryptoTraderPro) · [📋 Changelog](./CHANGELOG.md) · [🐛 Issues](https://github.com/Gzeu/CryptoTraderPro/issues)
+[🔗 Live Demo](https://gzeu.github.io/CryptoTraderPro) · [📋 Changelog](./CHANGELOG.md) · [🐛 Issues](https://github.com/Gzeu/CryptoTraderPro/issues) · [🌐 /egld Dashboard](#-egld--multiversx)
 
 </div>
 
@@ -25,7 +26,7 @@ Real-time WebSocket prices · Portfolio P&L · Price Alerts · MultiversX/EGLD n
 |---|---|
 | 📊 **Market Dashboard** | Top 50 coins live, sortable by Price / 24h% / MCap / Volume |
 | ⚡ **Binance WebSocket** | Singleton `priceFeed` — batched subscriptions, exponential reconnect |
-| 💼 **Portfolio Tracker** | Add positions with buy price, live P&L per row, pie chart, CSV export |
+| 💼 **Portfolio Tracker** | Add positions with buy price, live P&L per row, 24h%, pie chart, CSV export |
 | 🔔 **Price Alerts** | Above/below thresholds → browser `Notification API`, persisted Zustand |
 | ⭐ **Watchlist** | Star any coin, live prices via WS, persistent `/watchlist` page |
 | 🔍 **Global Search** | `Cmd+K` modal — live filter, keyboard nav `↑↓↵Esc` |
@@ -34,10 +35,13 @@ Real-time WebSocket prices · Portfolio P&L · Price Alerts · MultiversX/EGLD n
 | 📈 **TradingView Charts** | Embedded Advanced Chart per coin (SSR-safe dynamic import) |
 | ↔️ **Compare** | Side-by-side dual-chart overlay, normalized to 100% |
 | 🧪 **Backtest** | SMA crossover strategy on Binance OHLC klines, equity curve |
-| 🌐 **EGLD Dashboard** | MultiversX economics, staking APR, validators, live EGLDUSDT price |
+| 🌐 **EGLD Dashboard** | MultiversX economics, staking APR, validators, live EGLDUSDT · `● LIVE` |
+| 🔎 **Address Inspector** | `erd1...` wallet lookup — EGLD balance, ESDT tokens, NFTs, recent txs |
+| ✨ **PriceFlash** | Green/red flash 600ms on every price update across all pages |
+| 🟢 **LiveDot** | Reusable animated live indicator — `<LiveDot showLabel />` |
 | 🌗 **Dark / Light Mode** | `prefers-color-scheme` default + manual `data-theme` toggle |
 | 🛡️ **Error Boundary** | React class ErrorBoundary — catch + retry UI, no raw stack traces |
-| 🗺️ **SEO Sitemap** | Dynamic `sitemap.ts` — home + portfolio + watchlist + top-15 coins |
+| 🗺️ **SEO Sitemap** | Dynamic `sitemap.ts` — home + portfolio + watchlist + top-15 coins + EGLD |
 
 ---
 
@@ -66,7 +70,7 @@ Real-time WebSocket prices · Portfolio P&L · Price Alerts · MultiversX/EGLD n
 # Install
 npm install
 
-# Configure environment (copy and fill in)
+# Configure environment
 cp .env.example .env.local
 
 # Dev server
@@ -86,14 +90,14 @@ npm run build
 
 ```bash
 # CoinGecko (free tier works without key; Pro removes 429 rate limit)
-COINGECKO_API_KEY=                          # optional
+COINGECKO_API_KEY=
 NEXT_PUBLIC_COINGECKO_BASE=https://api.coingecko.com/api/v3
 
 # CryptoPanic — news feed per currency
 CRYPTOPANIC_API_KEY=                        # REQUIRED — https://cryptopanic.com/developers/api/
 NEXT_PUBLIC_CRYPTOPANIC_BASE=https://cryptopanic.com/api/v1
 
-# MultiversX (EGLD dashboard)
+# MultiversX (EGLD dashboard + Address Inspector)
 MULTIVERSX_API_URL=https://api.multiversx.com
 NEXT_PUBLIC_MULTIVERSX_EXPLORER=https://explorer.multiversx.com
 
@@ -117,7 +121,7 @@ src/
 │   ├── providers.tsx             # ReactQueryDevtools + QueryClientProvider
 │   ├── globals.css               # CSS variables: Nexus palette light/dark, fluid type scale
 │   ├── page.tsx                  # /  → Dashboard: top coins table, global stats, search modal
-│   ├── sitemap.ts                # Dynamic sitemap (home + portfolio + watchlist + top-15 coins)
+│   ├── sitemap.ts                # Dynamic sitemap (home + portfolio + watchlist + top-15 coins + /egld)
 │   ├── error.tsx                 # Global error boundary page
 │   ├── not-found.tsx             # 404 page
 │   │
@@ -126,7 +130,10 @@ src/
 │   ├── alerts/page.tsx           # /alerts     → threshold triggers + Notification API
 │   ├── compare/page.tsx          # /compare    → side-by-side dual-chart, normalized %
 │   ├── backtest/page.tsx         # /backtest   → SMA crossover, equity curve, metrics
-│   ├── egld/page.tsx             # /egld       → MultiversX EGLD dedicated dashboard
+│   │
+│   ├── egld/
+│   │   ├── page.tsx              # /egld       → EGLD KPI cards, staking, validators, wallet input
+│   │   └── [address]/page.tsx    # /egld/erd1… → balance, ESDT tokens, NFTs, recent transactions
 │   │
 │   ├── coin/[id]/page.tsx        # /coin/[id]  → TradingView chart, stats, news, live price
 │   │
@@ -137,7 +144,9 @@ src/
 │       ├── news/route.ts         # GET /api/news?currency=
 │       ├── global/route.ts       # GET /api/global
 │       ├── search/route.ts       # GET /api/search?q=
-│       ├── egld/route.ts         # GET /api/egld (MultiversX aggregated)
+│       ├── egld/route.ts         # GET /api/egld          — aggregates /economics + /stats, revalidate 30s
+│       ├── egld/address/
+│       │   └── [address]/route.ts # GET /api/egld/address/[address] — account + tokens + nfts + txs, revalidate 15s
 │       └── alerts/check/route.ts # POST /api/alerts/check
 │
 ├── components/
@@ -156,7 +165,7 @@ src/
 │   │   └── TradingViewWidget.tsx # TradingView Advanced Chart (SSR-safe)
 │   │
 │   ├── portfolio/
-│   │   └── PortfolioTable.tsx    # Live dot ●, P&L colored, remove button
+│   │   └── PortfolioTable.tsx    # Live dot ●, P&L colored, 24h%, remove button
 │   │
 │   ├── watchlist/
 │   │   └── WatchlistCard.tsx     # Card with live price + 24h%
@@ -164,11 +173,20 @@ src/
 │   ├── alerts/
 │   │   └── AlertRow.tsx          # Target price, current price, status badge
 │   │
+│   ├── egld/
+│   │   ├── EgldKpiCard.tsx       # KPI card: icon, label, value, optional delta
+│   │   ├── EgldQuickLinks.tsx    # Explorer · xExchange · xPortal · Docs · Staking
+│   │   ├── WalletInspector.tsx   # erd1… input + validate + navigate to /egld/[address]
+│   │   └── AddressDetail.tsx     # Balance, ESDT list, NFT count, recent txs
+│   │
 │   └── ui/
 │       ├── Skeleton.tsx          # Shimmer skeleton
 │       ├── Badge.tsx             # Color badge (success/error/warning/info)
 │       ├── Tooltip.tsx           # CSS-only accessible tooltip
-│       └── Button.tsx            # primary / secondary / ghost / danger variants
+│       ├── Button.tsx            # primary / secondary / ghost / danger variants
+│       ├── PriceFlash.tsx        # Wraps any value — green/red flash 600ms on change
+│       ├── LiveDot.tsx           # Animated ● indicator — size sm/md, optional label
+│       └── CopyButton.tsx        # Copy to clipboard — ✓ feedback 1.5s
 │
 ├── hooks/
 │   ├── useLivePrice.ts           # Single symbol via priceFeed singleton
@@ -184,10 +202,11 @@ src/
 │   ├── api/
 │   │   ├── coingecko.ts          # Typed CoinGecko fetchers
 │   │   ├── cryptopanic.ts        # CryptoPanic news fetcher
-│   │   ├── multiversx.ts         # MultiversX economics + stats
+│   │   ├── multiversx.ts         # MultiversX economics + stats + address + tokens + txs
 │   │   └── binance.ts            # Binance klines/OHLC fetcher
-│   ├── formatters.ts             # fmtPrice / fmtLarge / fmtPct / fmtDate
+│   ├── formatters.ts             # fmtPrice / fmtLarge / fmtPct / fmtDate / fmtEgld
 │   ├── cgToBinance.ts            # CoinGecko id → Binance USDT symbol map
+│   ├── egldValidation.ts         # isValidEgldAddress(addr) — bech32 erd1 check
 │   └── constants.ts              # TOP_COINS, DEFAULT_CURRENCY, REFRESH_INTERVALS
 │
 ├── store/
@@ -198,7 +217,7 @@ src/
 └── types/
     ├── coingecko.ts
     ├── cryptopanic.ts
-    ├── multiversx.ts
+    ├── multiversx.ts             # EgldEconomics, EgldStats, MvxAccount, EsdtToken, MvxTx
     └── portfolio.ts              # PortfolioEntry, PortfolioRow, AlertEntry
 ```
 
@@ -224,6 +243,32 @@ priceFeed.getCached(symbol)     → TickerPayload | null
 
 ---
 
+## ✨ Frontend Polish Components
+
+### `PriceFlash`
+Wraps any price value and flashes green/red for 600ms when the value changes:
+```tsx
+<PriceFlash value={price}>
+  {fmtPrice(price)}
+</PriceFlash>
+```
+Used on every live price in Dashboard, Portfolio, Watchlist, and EGLD pages.
+
+### `LiveDot`
+Reusable animated live indicator with two variants:
+```tsx
+<LiveDot isLive={isConnected} />                  // ● dot only
+<LiveDot isLive={isConnected} showLabel size="md" /> // ● LIVE
+```
+
+### `CopyButton`
+Copy any string to clipboard with 1.5s visual confirmation (`✓ Copied`):
+```tsx
+<CopyButton value="erd1abc..." />
+```
+
+---
+
 ## ⌨️ Keyboard Shortcuts
 
 | Shortcut | Action |
@@ -246,9 +291,10 @@ fmtPrice(0.000123)    // "$0.000123"
 fmtLarge(1_230_000)   // "$1.23M"
 fmtPct(3.45)          // "+3.45%"
 fmtDate(timestamp)    // "May 17, 2026 · 01:33"
+fmtEgld(1234500000000000000n) // "1.2345 EGLD"
 ```
 
-All numeric values in the UI must be wrapped in `fmtPrice / fmtLarge / fmtPct` and use the `tabular-nums` CSS class.
+All numeric values in the UI must use `fmtPrice / fmtLarge / fmtPct / fmtEgld` and the `tabular-nums` CSS class.
 
 ---
 
@@ -256,11 +302,35 @@ All numeric values in the UI must be wrapped in `fmtPrice / fmtLarge / fmtPct` a
 
 CryptoTraderPro has first-class support for the MultiversX ecosystem:
 
-- **Dedicated `/egld` dashboard** — price, 24h%, marketcap, staking APR, total supply, validators, transactions
-- **Live EGLDUSDT price** via Binance WS `priceFeed`
-- **Route handler** `/api/egld` aggregates `/economics` + `/stats` from `api.multiversx.com`
-- **Direct link** to [MultiversX Explorer](https://explorer.multiversx.com)
-- **Full coin detail** at `/coin/elrond-erd-2` with TradingView chart + CryptoPanic news
+### `/egld` — Main Dashboard
+- **8 KPI cards**: EGLD Price (live WS `● LIVE`), 24h%, Market Cap, Staking APR, Total Staked, Validators, Total Transactions, Total Accounts
+- **Wallet Inspector** — enter any `erd1...` address, validates bech32, navigates to Address Detail
+- **Quick Links** — Explorer · xExchange · xPortal · Docs · Staking Providers
+- **`PriceFlash`** on EGLD price + `LiveDot` indicator
+
+### `/egld/[address]` — Address Inspector
+- EGLD balance + USD value (calculated from live WS price)
+- MultiversX username (`@alias`) if registered
+- ESDT tokens list — logo, identifier, balance with correct decimals
+- NFT/SFT count
+- Recent transactions — status icon (↑ send / ↓ receive), hash, action label, value, timestamp
+- **CopyButton** on address · direct link to Explorer
+
+### API Routes
+| Route | Data | Revalidate |
+|---|---|---|
+| `GET /api/egld` | economics + stats aggregated | 30s |
+| `GET /api/egld/address/[address]` | account + tokens + nfts + txs | 15s |
+
+### Data source
+```
+https://api.multiversx.com/economics
+https://api.multiversx.com/stats
+https://api.multiversx.com/accounts/{address}
+https://api.multiversx.com/accounts/{address}/tokens
+https://api.multiversx.com/accounts/{address}/nfts?size=1
+https://api.multiversx.com/accounts/{address}/transactions?size=10
+```
 
 ---
 
@@ -273,6 +343,7 @@ CryptoTraderPro has first-class support for the MultiversX ecosystem:
 | New Zustand store | `src/store/{name}Store.ts` with `persist` middleware |
 | New page | `src/app/{route}/page.tsx` + entry in `sitemap.ts` |
 | New WS hook | Build on `useLivePrices` — never raw Binance WS |
+| New UI component | `src/components/ui/` — use Nexus CSS variables only |
 
 ---
 
@@ -288,14 +359,18 @@ CryptoTraderPro has first-class support for the MultiversX ecosystem:
 | CoinNewsFeed → CryptoPanicFeed | ✅ v0.7.0 |
 | usePortfolioLivePrices + pie chart | ✅ v0.8.0 |
 | Live dot ● per row portfolio | ✅ v0.8.0 |
-| Flash animație preț schimbat | 🔲 v0.9.0 |
-| 24h% per row portfolio (from WS) | 🔲 v0.9.0 |
-| /alerts page cu Notification API | 🔲 v0.9.0 |
-| /compare dual-chart normalizat | 🔲 v0.10.0 |
-| /backtest SMA crossover | 🔲 v0.10.0 |
-| /egld MultiversX dashboard | 🔲 v0.11.0 |
-| Supabase auth + cloud sync | 🔲 v1.0.0 |
+| PriceFlash animație preț schimbat | ✅ v0.9.0 |
+| 24h% per row portfolio (from WS) | ✅ v0.9.0 |
+| /alerts page cu Notification API | ✅ v0.9.0 |
+| /compare dual-chart normalizat | ✅ v0.10.0 |
+| /backtest SMA crossover | ✅ v0.10.0 |
+| /egld MultiversX dashboard complet | ✅ v0.11.0 |
+| /egld/[address] Address Inspector | ✅ v0.11.0 |
+| LiveDot + CopyButton components | ✅ v0.11.0 |
+| Supabase auth + cloud sync portfolio | 🔲 v1.0.0 |
 | Mobile PWA + push notifications | 🔲 v1.0.0 |
+| xExchange DEX integration | 🔲 v1.0.0 |
+| Multi-chain support (ETH, SOL) | 🔲 v1.1.0 |
 
 ---
 
