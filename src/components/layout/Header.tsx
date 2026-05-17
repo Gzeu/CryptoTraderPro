@@ -11,22 +11,26 @@ import { SearchModal } from '@/components/layout/SearchModal'
 import { useAlertStore } from '@/store/alertStore'
 
 const NAV = [
-  { href: '/',           label: 'Dashboard' },
-  { href: '/watchlist',  label: 'Watchlist' },
-  { href: '/portfolio',  label: 'Portfolio' },
-  { href: '/alerts',     label: 'Alerts' },
-  { href: '/backtest',   label: 'Backtest' },
-]
+  { href: '/',          label: 'Dashboard' },
+  { href: '/watchlist', label: 'Watchlist' },
+  { href: '/portfolio', label: 'Portfolio' },
+  { href: '/alerts',    label: 'Alerts' },
+  { href: '/egld',      label: 'EGLD' },
+  { href: '/compare',   label: 'Compare' },
+  { href: '/backtest',  label: 'Backtest' },
+] as const
 
 const SHORTCUT_HELP = [
-  { key: '⌘K',  desc: 'Open search' },
-  { key: 'D',   desc: 'Dashboard' },
-  { key: 'W',   desc: 'Watchlist' },
-  { key: 'P',   desc: 'Portfolio' },
-  { key: 'A',   desc: 'Alerts' },
-  { key: 'B',   desc: 'Backtest' },
-  { key: '?',   desc: 'This help' },
-  { key: 'Esc', desc: 'Close modal' },
+  { key: '\u2318K',  desc: 'Open search' },
+  { key: 'D',        desc: 'Dashboard' },
+  { key: 'W',        desc: 'Watchlist' },
+  { key: 'P',        desc: 'Portfolio' },
+  { key: 'A',        desc: 'Alerts' },
+  { key: 'E',        desc: 'EGLD dashboard' },
+  { key: 'C',        desc: 'Compare' },
+  { key: 'B',        desc: 'Backtest' },
+  { key: '?',        desc: 'This help' },
+  { key: 'Esc',      desc: 'Close modal' },
 ]
 
 export function Header() {
@@ -48,32 +52,43 @@ export function Header() {
 
   return (
     <>
-      <header className="sticky top-0 z-40 border-b" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+      <header
+        className="sticky top-0 z-40 border-b"
+        style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
 
           {/* Logo + nav */}
-          <div className="flex items-center gap-4 shrink-0">
-            <Link href="/" className="flex items-center gap-2">
-              <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-label="CryptoTraderPro">
+          <div className="flex items-center gap-3 shrink-0">
+            <Link href="/" className="flex items-center gap-2" aria-label="CryptoTraderPro home">
+              <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
                 <rect width="28" height="28" rx="7" fill="var(--primary)" />
                 <path d="M6 14h4l2.5-5.5 3.5 11 2.5-7.5 2 2h3" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
               <span className="font-bold text-sm tracking-tight hidden sm:block">CryptoTraderPro</span>
             </Link>
 
-            <nav className="hidden md:flex items-center gap-1 text-sm">
+            <nav className="hidden md:flex items-center gap-0.5 text-sm" aria-label="Main navigation">
               {NAV.map(item => {
                 const active = pathname === item.href
                 return (
-                  <Link key={item.href} href={item.href}
-                    className="relative px-3 py-1 rounded-lg font-medium transition-colors"
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className="relative px-2.5 py-1 rounded-lg font-medium transition-opacity hover:opacity-80"
                     style={active
                       ? { background: 'var(--surface-2)', color: 'var(--text)' }
-                      : { color: 'var(--text-muted)' }}>
+                      : { color: 'var(--text-muted)' }
+                    }
+                    aria-current={active ? 'page' : undefined}
+                  >
                     {item.label}
                     {item.href === '/alerts' && activeAlerts > 0 && (
-                      <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full text-[9px] font-bold flex items-center justify-center"
-                        style={{ background: 'var(--primary)', color: '#fff' }}>
+                      <span
+                        className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full text-[9px] font-bold flex items-center justify-center"
+                        style={{ background: 'var(--primary)', color: '#fff' }}
+                        aria-label={`${activeAlerts} active alerts`}
+                      >
                         {activeAlerts}
                       </span>
                     )}
@@ -88,10 +103,16 @@ export function Header() {
             onClick={() => setSearchOpen(true)}
             className="flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm flex-1 max-w-xs transition-opacity hover:opacity-80"
             style={{ background: 'var(--surface-2)', borderColor: 'var(--border)', color: 'var(--text-muted)' }}
-            aria-label="Search coins">
-            <Search size={13} />
+            aria-label="Search coins (Cmd+K)"
+          >
+            <Search size={13} aria-hidden="true" />
             <span className="flex-1 text-left">Search coins…</span>
-            <kbd className="hidden sm:inline text-xs px-1.5 py-0.5 rounded" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>⌘K</kbd>
+            <kbd
+              className="hidden sm:inline text-xs px-1.5 py-0.5 rounded"
+              style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+            >
+              ⌘K
+            </kbd>
           </button>
 
           {/* Actions */}
@@ -101,29 +122,56 @@ export function Header() {
                 {lastUpdate.toLocaleTimeString()}
               </span>
             )}
-            <button onClick={() => refetch()} title="Refresh" className="p-2 rounded-lg hover:opacity-70 transition-opacity" style={{ color: 'var(--text-muted)' }} aria-label="Refresh">
-              <RefreshCw size={15} />
+            <button
+              onClick={() => refetch()}
+              className="p-2 rounded-lg hover:opacity-70 transition-opacity"
+              style={{ color: 'var(--text-muted)' }}
+              aria-label="Refresh market data"
+            >
+              <RefreshCw size={15} aria-hidden="true" />
             </button>
-            <Link href="/alerts" className="relative p-2 rounded-lg hover:opacity-70 transition-opacity" style={{ color: 'var(--text-muted)' }} aria-label="Alerts">
-              <Bell size={15} />
+            <Link
+              href="/alerts"
+              className="relative p-2 rounded-lg hover:opacity-70 transition-opacity"
+              style={{ color: 'var(--text-muted)' }}
+              aria-label={activeAlerts > 0 ? `Alerts — ${activeAlerts} active` : 'Alerts'}
+            >
+              <Bell size={15} aria-hidden="true" />
               {activeAlerts > 0 && (
-                <span className="absolute top-1 right-1 w-2 h-2 rounded-full" style={{ background: 'var(--primary)' }} />
+                <span
+                  className="absolute top-1 right-1 w-2 h-2 rounded-full"
+                  style={{ background: 'var(--primary)' }}
+                  aria-hidden="true"
+                />
               )}
             </Link>
-            <Link href="/backtest" className="p-2 rounded-lg hover:opacity-70 transition-opacity" style={{ color: 'var(--text-muted)' }} aria-label="Backtest">
-              <BarChart2 size={15} />
+            <Link
+              href="/backtest"
+              className="p-2 rounded-lg hover:opacity-70 transition-opacity"
+              style={{ color: 'var(--text-muted)' }}
+              aria-label="Backtest"
+            >
+              <BarChart2 size={15} aria-hidden="true" />
             </Link>
-            <button onClick={toggleTheme} title="Toggle theme" className="p-2 rounded-lg hover:opacity-70 transition-opacity" style={{ color: 'var(--text-muted)' }} aria-label="Toggle theme">
-              {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
+            <button
+              onClick={toggleTheme}
+              className="p-2 rounded-lg hover:opacity-70 transition-opacity"
+              style={{ color: 'var(--text-muted)' }}
+              aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+            >
+              {theme === 'dark'
+                ? <Sun  size={15} aria-hidden="true" />
+                : <Moon size={15} aria-hidden="true" />
+              }
             </button>
             <button
               onClick={() => setHelpOpen(h => !h)}
-              title="Keyboard shortcuts (?)"
               className="p-2 rounded-lg hover:opacity-70 transition-opacity"
               style={{ color: 'var(--text-muted)' }}
               aria-label="Keyboard shortcuts"
+              aria-expanded={helpOpen}
             >
-              <Keyboard size={15} />
+              <Keyboard size={15} aria-hidden="true" />
             </button>
           </div>
         </div>
@@ -132,33 +180,48 @@ export function Header() {
       {/* Search Modal */}
       <SearchModal open={searchOpen} onClose={() => setSearchOpen(false)} />
 
-      {/* ⌨️ Keyboard Shortcuts Help Modal — triggered by ? key */}
+      {/* Keyboard Shortcuts Help Modal */}
       {helpOpen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center px-4"
           style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}
           onClick={e => { if (e.target === e.currentTarget) setHelpOpen(false) }}
-          role="dialog" aria-modal="true" aria-label="Keyboard shortcuts"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Keyboard shortcuts"
         >
-          <div className="w-full max-w-sm rounded-2xl border overflow-hidden shadow-xl"
-            style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
-
+          <div
+            className="w-full max-w-sm rounded-2xl border overflow-hidden shadow-xl"
+            style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
+          >
             <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'var(--border)' }}>
               <h2 className="font-bold text-sm flex items-center gap-2">
-                <Keyboard size={14} /> Keyboard Shortcuts
+                <Keyboard size={14} aria-hidden="true" /> Keyboard Shortcuts
               </h2>
-              <button onClick={() => setHelpOpen(false)} className="p-1 rounded hover:opacity-60 transition-opacity" aria-label="Close">
-                <X size={15} style={{ color: 'var(--text-muted)' }} />
+              <button
+                onClick={() => setHelpOpen(false)}
+                className="p-1 rounded hover:opacity-60 transition-opacity"
+                aria-label="Close shortcuts panel"
+              >
+                <X size={15} style={{ color: 'var(--text-muted)' }} aria-hidden="true" />
               </button>
             </div>
 
-            <ul className="py-2">
+            <ul className="py-2" role="list">
               {SHORTCUT_HELP.map(s => (
-                <li key={s.key} className="flex items-center justify-between px-4 py-2 hover:opacity-80 transition-opacity">
-                  <span className="text-sm" style={{ color: 'var(--text-muted)' }}>{s.desc}</span>
+                <li
+                  key={s.key}
+                  className="flex items-center justify-between px-4 py-2"
+                  style={{ color: 'var(--text-muted)' }}
+                >
+                  <span className="text-sm">{s.desc}</span>
                   <kbd
                     className="text-xs px-2 py-0.5 rounded font-mono"
-                    style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)' }}
+                    style={{
+                      background: 'var(--surface-2)',
+                      border: '1px solid var(--border)',
+                      color: 'var(--text)',
+                    }}
                   >
                     {s.key}
                   </kbd>
@@ -167,7 +230,9 @@ export function Header() {
             </ul>
 
             <div className="px-4 py-3 border-t" style={{ borderColor: 'var(--border)' }}>
-              <p className="text-xs" style={{ color: 'var(--text-faint)' }}>Press <kbd className="font-mono">?</kbd> or click the keyboard icon to toggle this panel.</p>
+              <p className="text-xs" style={{ color: 'var(--text-faint)' }}>
+                Press <kbd className="font-mono">?</kbd> or the keyboard icon to toggle.
+              </p>
             </div>
           </div>
         </div>
