@@ -18,13 +18,15 @@
   --text-faint:  #94a3b8;
 
   /* Accent — teal */
-  --primary:     #0d9488;
+  --primary:       #0d9488;
   --primary-hover: #0f766e;
 
   /* Status */
-  --green:  #16a34a;
-  --red:    #dc2626;
-  --yellow: #d97706;
+  --green:         #16a34a;
+  --green-subtle:  rgba(22,163,74,0.10);
+  --red:           #dc2626;
+  --red-subtle:    rgba(220,38,38,0.10);
+  --yellow:        #d97706;
 
   /* Radius */
   --r-sm: 0.375rem;
@@ -44,11 +46,13 @@
   --text:        #e2e8f0;
   --text-muted:  #94a3b8;
   --text-faint:  #475569;
-  --primary:     #2dd4bf;
+  --primary:       #2dd4bf;
   --primary-hover: #5eead4;
-  --green:  #4ade80;
-  --red:    #f87171;
-  --yellow: #fbbf24;
+  --green:         #4ade80;
+  --green-subtle:  rgba(74,222,128,0.12);
+  --red:           #f87171;
+  --red-subtle:    rgba(248,113,113,0.12);
+  --yellow:        #fbbf24;
 }
 
 /* ─── Base Reset ─────────────────────────────────────────────── */
@@ -143,6 +147,16 @@ p, li { text-wrap: pretty; }
 
 /* ─── Fade-up ────────────────────────────────────────────────── */
 .fade-up { animation: fade-up 0.4s ease both; }
+
+/* ─── Coin row — clickable ───────────────────────────────────── */
+.coin-row {
+  display: grid;
+  transition: background var(--tx);
+  text-decoration: none;
+  color: inherit;
+}
+.coin-row:hover { background: color-mix(in oklch, var(--primary) 4%, var(--surface)); }
+.coin-row:focus-visible { outline-offset: -2px; }
 
 /* ─── Reduced motion ─────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
